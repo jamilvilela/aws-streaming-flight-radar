@@ -1,7 +1,8 @@
+source .env
 terraform init
 terraform validate
-terraform plan -var-file="terraform.tfvars"
-terraform apply -var-file="terraform.tfvars" -auto-approve
+terraform plan -var-file="tfvars/terraform.tfvars"
+terraform apply -var-file="tfvars/terraform.tfvars" -auto-approve
 if [ $? -ne 0 ]; then
   echo "Terraform apply failed. Exiting."
   exit 1
