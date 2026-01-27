@@ -19,33 +19,6 @@ variable "buckets" {
   })
 }
 
-############################################
-# Glue Catalog variables
-variable "databases" {
-  description = "Glue databases for the data lake"
-  type = object({
-    raw      = string
-  })
-}
-
-variable "tables" {
-  description = "Glue tables for the data lake"
-  type = object({
-    etl_control  = string
-    data_quality = string
-  })
-}
-
-##############################################
-# User credentials for the data lake
-variable "users" {
-  description = "User credentials for the data lake"
-  type = object({
-    datalake_user1     = object({
-      name     = string
-    })
-  })
-}
 
 ##############################################
 # Flight Radar data stream variables
@@ -65,27 +38,76 @@ variable "project_name" {
   type        = string
 }
 
+variable "environment" {
+  description = "Ambiente (production, staging, development)"
+  type        = string
+  default     = "production"
+  validation {
+    condition     = contains(["production", "staging", "development"], var.environment)
+    error_message = "Environment deve ser production, staging ou development."
+  }
+}
+
 ###############################################
 # Kinesis Data Streams variables
 variable "kinesis_streams" {
   description = "Map of Kinesis stream names and their configurations"
   type = map(object({
+    stream_name = string
     shard_count = number
   }))
   default = {}
 }
 
-variable "ingestion_schedule" {
-  description = "Schedule do EventBridge"
+###############################################
+# Lambda Functions Configuration
+variable "lambda_functions" {
+  description = "Map of Lambda functions with their configurations"
+  type = map(object({
+    name                              = string
+    handler                          = string
+    runtime                          = string
+    timeout                          = number
+    memory_size                      = number
+    ephemeral_storage               = number
+    schedule                         = string      # EventBridge schedule expression
+    enabled                          = bool
+    kinesis_stream                   = string
+    requires_opensky_credentials    = bool
+    reserved_concurrent_executions  = number
+    tags                            = map(string)
+  }))
+  validation {
+    condition = alltrue([
+      for func in var.lambda_functions :
+      func.timeout > 0 && func.timeout <= 900
+    ])
+    error_message = "Lambda timeout deve ser entre 1 e 900 segundos."
+  }
+}
+
+variable "opensky_username" {
+  description = "OpenSky API username (will be stored in AWS Secrets Manager)"
   type        = string
+  sensitive   = true
 }
 
-variable "lambda_ingest_timeout" {
-  description = "Timeout das funções de ingestão"
-  type        = number
+variable "opensky_password" {
+  description = "OpenSky API password (will be stored in AWS Secrets Manager)"
+  type        = string
+  sensitive   = true
 }
 
-variable "lambda_processor_timeout" {
-  description = "Timeout das funções de processamento"
+###############################################
+# AWS Secrets Manager Configuration
+variable "secrets_recovery_window_days" {
+  description = "Number of days before a deleted secret is permanently deleted"
   type        = number
+  default     = 7
+}
+
+variable "secrets_log_retention_days" {
+  description = "CloudWatch logs retention period for Secrets Manager audit logs"
+  type        = number
+  default     = 7
 }
