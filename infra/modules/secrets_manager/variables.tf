@@ -15,10 +15,10 @@ variable "opensky_password" {
   sensitive   = true
 }
 
-variable "lambda_role_arns" {
-  description = "List of Lambda IAM role ARNs that can access the secret"
-  type        = list(string)
-}
+# variable "lambda_role_arns" {
+#   description = "List of Lambda IAM role ARNs that can access the secret"
+#   type        = list(string)
+# }
 
 variable "recovery_window_days" {
   description = "Number of days for secret recovery window after deletion"
