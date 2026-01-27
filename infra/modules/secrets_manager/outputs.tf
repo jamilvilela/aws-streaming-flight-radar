@@ -13,10 +13,6 @@ output "secret_version_id" {
   value       = aws_secretsmanager_secret_version.opensky_credentials.version_id
 }
 
-output "secret_access_policy" {
-  description = "ARN of the secret with access policy applied"
-  value       = length(aws_secretsmanager_secret_policy.opensky_credentials) > 0 ? aws_secretsmanager_secret_policy.opensky_credentials[0].secret_arn : null
-}
 
 output "cloudwatch_log_group" {
   description = "CloudWatch log group for secret access audit logs"

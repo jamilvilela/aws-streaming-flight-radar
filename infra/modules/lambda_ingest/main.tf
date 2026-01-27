@@ -158,3 +158,33 @@ resource "aws_iam_role_policy_attachment" "lambda_insights_policy" {
   role               = aws_iam_role.lambda_role.name
   policy_arn         = "arn:aws:iam::aws:policy/CloudWatchLambdaInsightsExecutionRolePolicy"
 }
+
+
+# Policy to allow Lambda to read the secret
+resource "aws_secretsmanager_secret_policy" "opensky_credentials" {
+  
+  secret_arn = var.opensky_secret_arn
+  # secret_arn = aws_secretsmanager_secret.opensky_credentials.arn
+  # secret_arn = module.secrets_manager.secret_arn
+
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "AllowLambdaReadSecret"
+        Effect = "Allow"
+        Principal = {
+          # AWS = [for k, v in module.lambda_ingest : v.lambda_role_arn] 
+          AWS = [aws_iam_role.lambda_role.arn]
+        }
+        Action = [
+          "secretsmanager:GetSecretValue"
+        ]
+        # Resource = aws_secretsmanager_secret.opensky_credentials.arn
+        # Resource = module.secrets_manager.secret_arn
+        Resource = var.opensky_secret_arn
+      }
+    ]
+  })
+  depends_on = [aws_iam_role.lambda_role]
+}

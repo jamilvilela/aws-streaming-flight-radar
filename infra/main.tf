@@ -7,21 +7,20 @@ module "kinesis_data_stream" {
 }
 
 # Compute Lambda role ARNs using naming pattern (breaks circular dependency)
-locals {
-  lambda_role_arns = [
-    for k, config in var.lambda_functions :
-    "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-lambda-${k}-role"
-    if config.enabled && config.requires_opensky_credentials
-  ]
-}
- 
+# locals {
+#   lambda_role_arns = [
+#     for k, config in var.lambda_functions :
+#     "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-lambda-${k}-role"
+#     if config.enabled && config.requires_opensky_credentials
+#   ]
+# }
+
 module "secrets_manager" {
   source = "./modules/secrets_manager"
   
   project_name         = var.project_name
   opensky_username     = var.opensky_username
   opensky_password     = var.opensky_password
-  lambda_role_arns     = local.lambda_role_arns
   recovery_window_days = var.secrets_recovery_window_days
   log_retention_days   = var.secrets_log_retention_days
   tags = merge(var.tags, {
@@ -46,6 +45,8 @@ module "lambda_ingest" {
   
   depends_on = [module.kinesis_data_stream, module.secrets_manager]
 }
+
+ 
 
 module "eventbridge" {
   for_each = {

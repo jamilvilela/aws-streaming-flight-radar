@@ -16,9 +16,9 @@ resource "aws_scheduler_schedule" "lambda_schedule" {
       maximum_retry_attempts       = 2
     }
 
-    dead_letter_config {
-      arn = null
-    }
+    # dead_letter_config {
+    #   arn = null
+    # }
   }
 }
 

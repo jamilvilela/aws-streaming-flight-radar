@@ -9,7 +9,7 @@ output "secrets_manager_info" {
       secret_id         = module.secrets_manager.secret_id
       secret_arn        = module.secrets_manager.secret_arn
       version_id        = module.secrets_manager.secret_version_id
-      access_policy_arn = module.secrets_manager.secret_access_policy
+      # access_policy_arn = aws_secretsmanager_secret_policy.opensky_credentials.policy
       log_group         = module.secrets_manager.cloudwatch_log_group
     }
   }

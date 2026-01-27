@@ -21,28 +21,6 @@ resource "aws_secretsmanager_secret_version" "opensky_credentials" {
   })
 }
 
-# Policy to allow Lambda to read the secret
-resource "aws_secretsmanager_secret_policy" "opensky_credentials" {
-  count      = length(var.lambda_role_arns) > 0 ? 1 : 0
-  secret_arn = aws_secretsmanager_secret.opensky_credentials.arn
-
-  policy = jsonencode({
-    Version = "2012-10-17"
-    Statement = [
-      {
-        Sid    = "AllowLambdaReadSecret"
-        Effect = "Allow"
-        Principal = {
-          AWS = var.lambda_role_arns 
-        }
-        Action = [
-          "secretsmanager:GetSecretValue"
-        ]
-        Resource = aws_secretsmanager_secret.opensky_credentials.arn
-      }
-    ]
-  })
-}
 
 # CloudWatch Log for secret access (optional)
 resource "aws_cloudwatch_log_group" "secrets_access_logs" {
