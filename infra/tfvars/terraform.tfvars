@@ -65,8 +65,7 @@ buckets = {
 # ⚠️  NÃO COMMIT CREDENCIAIS REAIS AQUI
 # Use: export TF_VAR_opensky_username="seu_usuario"
 #      export TF_VAR_opensky_password="sua_senha"
-opensky_username = TF_VAR_opensky_username  # Defina via TF_VAR_opensky_username
-opensky_password = TF_VAR_opensky_password  # Defina via TF_VAR_opensky_password
+
 
 # AWS Secrets Manager Configuration
 secrets_recovery_window_days = 0  # Deleta imediatamente

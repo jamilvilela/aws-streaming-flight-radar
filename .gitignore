@@ -3,9 +3,11 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.zip
 *.ipynb
-*.txt
 *.exemple
+credentials.json 
+*layers/ 
 
 *.exe
 # Terraform files

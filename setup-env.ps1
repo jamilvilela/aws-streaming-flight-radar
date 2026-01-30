@@ -214,5 +214,5 @@ Write-Host "  2. Teste o Lambda:"
 Write-Host '     aws lambda invoke --function-name flight-radar-stream-ingest-flights C:\tmp\response.json' -ForegroundColor Gray
 Write-Host ""
 Write-Host "  3. Verifique o Kinesis:"
-Write-Host '     aws kinesis describe-stream --stream-name flight-radar-stream-flights' -ForegroundColor Gray
+Write-Host '     aws kinesis describe-stream --stream-name flight-radar-kinesis-stream-flights' -ForegroundColor Gray
 Write-Host ""

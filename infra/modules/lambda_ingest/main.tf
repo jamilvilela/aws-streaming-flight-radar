@@ -1,3 +1,9 @@
+resource "aws_lambda_layer_version" "python_layer" {
+  filename          = data.archive_file.python_layer.output_path
+  layer_name        = "${var.project_name}-python-layer"
+  compatible_runtimes = [var.lambda_config.runtime]
+}
+
 resource "aws_lambda_function" "lambda_function" {
   filename         = data.archive_file.lambda_function.output_path
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
@@ -7,7 +13,8 @@ resource "aws_lambda_function" "lambda_function" {
   runtime          = var.lambda_config.runtime
   timeout          = var.lambda_config.timeout
   memory_size      = var.lambda_config.memory_size
-  
+  layers           = [aws_lambda_layer_version.python_layer.arn]
+
   ephemeral_storage {
     size = var.lambda_config.ephemeral_storage
   }
@@ -15,8 +22,6 @@ resource "aws_lambda_function" "lambda_function" {
   # ON-DEMAND: 0 = sem provisionamento de concorrência (pay-per-use)
   # Valor > 0 = provisionado (custo fixo)
   reserved_concurrent_executions = var.lambda_config.reserved_concurrent_executions > 0 ? var.lambda_config.reserved_concurrent_executions : -1
-
-  layers = var.lambda_layers
 
   environment {
     variables = merge({

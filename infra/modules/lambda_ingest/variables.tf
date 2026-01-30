@@ -44,11 +44,6 @@ variable "opensky_secret_arn" {
   type        = string
 }
 
-variable "lambda_layers" {
-  description = "ARNs de Lambda Layers"
-  type        = list(string)
-  default     = []
-}
 
 variable "subnet_ids" {
   description = "IDs das subnets para VPC config"

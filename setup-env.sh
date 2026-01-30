@@ -47,6 +47,8 @@ echo -e "${GREEN}🔐 Credenciais configuradas como variáveis Terraform${NC}"
 echo "   TF_VAR_opensky_username: ${OPENSKY_USERNAME:0:3}***"
 echo "   TF_VAR_opensky_password: ${OPENSKY_PASSWORD:0:3}***"
 echo -e "${BLUE}ℹ️  Terraform usa automaticamente: TF_VAR_* > terraform.tfvars > defaults${NC}"
+
+# =============================================================================
 # STEP 2: Verify AWS credentials are set
 # =============================================================================
 echo ""
@@ -63,21 +65,73 @@ else
 fi
 
 # =============================================================================
-# STEP 3: Navigate to infra directory
+# STEP 3: Build/Update Python Lambda Layer (python_layer.zip)
 # =============================================================================
+echo ""
+echo -e "${BLUE}📦 Atualizando Lambda Layer (python_layer.zip)...${NC}"
+
+LAYER_DIR="app/layers"
+
+if [ -d "$LAYER_DIR/python" ]; then
+    # Entra na pasta da layer
+    pushd "$LAYER_DIR" >/dev/null 2>&1
+
+    # Detecta binário do 7z
+    SEVEN_ZIP_BIN=""
+
+    if command -v 7z >/dev/null 2>&1; then
+        SEVEN_ZIP_BIN="7z"
+    elif [ -x "/c/Program Files/7-Zip/7z.exe" ]; then
+        SEVEN_ZIP_BIN="/c/Program Files/7-Zip/7z.exe"
+    elif [ -x "/mnt/c/Program Files/7-Zip/7z.exe" ]; then
+        SEVEN_ZIP_BIN="/mnt/c/Program Files/7-Zip/7z.exe"
+    fi
+
+    if [ -n "$SEVEN_ZIP_BIN" ]; then
+        echo -e "${GREEN}✅ Usando binário 7z: '$SEVEN_ZIP_BIN'${NC}"
+        # Atualiza/cria o zip com a pasta python/ na raiz do zip
+        "$SEVEN_ZIP_BIN" u python_layer.zip python/
+    else
+        echo -e "${YELLOW}⚠️  7z não encontrado no PATH nem em caminhos padrão${NC}"
+        echo -e "${YELLOW}ℹ️  Se estiver em Windows com Git Bash, você pode rodar:${NC}"
+        echo "    echo 'alias 7z=\"/c/Program Files/7-Zip/7z.exe\"' >> ~/.bashrc"
+        echo "    source ~/.bashrc"
+        echo -e "${YELLOW}⚠️  Pulando compressão da layer${NC}"
+    fi
+
+    popd >/dev/null 2>&1
+else
+    echo -e "${YELLOW}⚠️  Diretório '$LAYER_DIR/python' não encontrado, pulando compressão da layer${NC}"
+fi
+
+# =============================================================================
+# STEP 4: Navigate to infra directory
+# =============================================================================
+echo ""
+echo -e "${BLUE}📁 Navegando para diretório infra/...${NC}"
+
 if [ ! -d "infra" ]; then
     echo -e "${RED}❌ Diretório infra/ não encontrado!${NC}"
-    echo "   Execute este script da raiz do projeto"
+    echo "   Execute este script a partir da raiz do projeto."
     exit 1
 fi
 
 cd infra || exit 1
-echo -e "${BLUE}📁 Mudado para diretório: $(pwd)${NC}"
+echo -e "${GREEN}✅ Agora em: $(pwd)${NC}"
 
-set +a
+set +a  # não precisa mais exportar automático
+
+# Garante que o arquivo de variáveis exista
+TFVARS_FILE="tfvars/terraform.tfvars"
+if [ ! -f "$TFVARS_FILE" ]; then
+    echo -e "${RED}❌ Arquivo de variáveis '$TFVARS_FILE' não encontrado!${NC}"
+    echo "   Crie-o a partir do template, por exemplo:"
+    echo "   cp tfvars/terraform.tfvars.example tfvars/terraform.tfvars"
+    exit 1
+fi
 
 # =============================================================================
-# STEP 4: Terraform init
+# STEP 5: Terraform init
 # =============================================================================
 echo ""
 echo -e "${BLUE}🚀 Iniciando deployment Terraform...${NC}"
@@ -93,7 +147,7 @@ echo -e "${GREEN}✅ terraform init concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 5: Terraform validate
+# STEP 6: Terraform validate
 # =============================================================================
 echo -e "${BLUE}Step 2: terraform validate${NC}"
 
@@ -106,11 +160,11 @@ echo -e "${GREEN}✅ terraform validate concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 6: Terraform plan
+# STEP 7: Terraform plan
 # =============================================================================
 echo -e "${BLUE}Step 3: terraform plan${NC}"
 
-terraform plan -var-file="tfvars/terraform.tfvars" -out=tfplan
+terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ terraform plan falhou${NC}"
     exit 1
@@ -119,11 +173,11 @@ echo -e "${GREEN}✅ terraform plan concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 7: Terraform apply
+# STEP 8: Terraform apply
 # =============================================================================
 echo -e "${BLUE}Step 4: terraform apply${NC}"
 
-terraform apply -var-file="tfvars/terraform.tfvars" -auto-approve tfplan
+terraform apply -var-file="$TFVARS_FILE" -auto-approve tfplan
 if [ $? -ne 0 ]; then
     echo -e "${RED}❌ terraform apply falhou${NC}"
     exit 1
@@ -132,7 +186,7 @@ echo -e "${GREEN}✅ terraform apply concluído com sucesso!${NC}"
 echo ""
 
 # =============================================================================
-# STEP 8: Post-deployment validation
+# STEP 9: Post-deployment validation
 # =============================================================================
 echo -e "${BLUE}📋 Validação pós-deployment:${NC}"
 
@@ -160,5 +214,5 @@ echo ""
 echo -e "${BLUE}Próximos passos:${NC}"
 echo "  1. Verifique os logs: aws logs tail /aws/lambda/flight-radar-stream-ingest-flights --follow"
 echo "  2. Teste o Lambda: aws lambda invoke --function-name flight-radar-stream-ingest-flights /tmp/response.json"
-echo "  3. Verifique o Kinesis: aws kinesis describe-stream --stream-name flight-radar-stream-flights"
+echo "  3. Verifique o Kinesis: aws kinesis describe-stream --stream-name flight-radar-kinesis-stream-flights"
 echo ""

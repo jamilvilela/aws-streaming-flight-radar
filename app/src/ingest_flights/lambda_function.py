@@ -40,7 +40,7 @@ import json
 import boto3
 import os
 from datetime import datetime
-from python_opensky import OpenSky
+from libs.python_opensky import OpenSky
 from aiohttp import BasicAuth
 import asyncio
 import logging

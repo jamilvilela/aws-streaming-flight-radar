@@ -246,7 +246,7 @@ aws lambda list-functions \
 #### 3. Verificar Kinesis Stream:
 ```bash
 aws kinesis describe-stream \
-  --stream-name flight-radar-stream-flights \
+  --stream-name flight-radar-kinesis-stream-flights \
   --region us-east-1
 ```
 
@@ -285,14 +285,14 @@ aws lambda invoke \
 ```bash
 # Obter shard ID
 SHARD_ID=$(aws kinesis list-shards \
-  --stream-name flight-radar-stream-flights \
+  --stream-name flight-radar-kinesis-stream-flights \
   --region us-east-1 \
   --query 'Shards[0].ShardId' \
   --output text)
 
 # Obter shard iterator
 SHARD_ITERATOR=$(aws kinesis get-shard-iterator \
-  --stream-name flight-radar-stream-flights \
+  --stream-name flight-radar-kinesis-stream-flights \
   --shard-id $SHARD_ID \
   --shard-iterator-type LATEST \
   --region us-east-1 \
