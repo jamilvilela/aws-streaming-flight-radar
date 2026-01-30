@@ -145,7 +145,7 @@ kinesis_streams = {
 - Depends on consumer Lambda (future)
 - Estimated: ~$0.01/mês
 
-**Total**: ~$0.03/mês para Kinesis (muito barato!)
+**Total**: ~$0.03/mês para Kinesis
 
 ## Escalabilidade
 
@@ -157,7 +157,7 @@ Com ON-DEMAND mode, Kinesis **automaticamente**:
 3. ✅ Não requer mudança de código/config
 4. ✅ Custo escala com uso real
 
-### Se Mudar para Modo PROVISIONED
+### Modo PROVISIONED
 
 Se precisar de SLA muito rígido no futuro:
 

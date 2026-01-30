@@ -2,22 +2,10 @@
 
 ## Overview
 
-A estrutura de configuração foi refatorada para suportar **múltiplas funções Lambda** com suas configurações individuais em um único mapa/dicionário.
+A estrutura de configuração suporta **múltiplas funções Lambda** com suas configurações individuais em um único mapa/dicionário.
 
 ## Estrutura de Dados
 
-### Antes (Estrutura Antiga)
-
-```terraform
-ingestion_schedule      = "rate(60 seconds)"
-lambda_ingest_timeout   = 55
-lambda_processor_timeout = 55
-kinesis_streams = {
-  flights = { shard_count = 1 }
-}
-```
-
-### Depois (Nova Estrutura)
 
 ```terraform
 lambda_functions = {
