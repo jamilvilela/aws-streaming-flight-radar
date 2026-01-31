@@ -10,6 +10,6 @@ data "archive_file" "lambda_function" {
 
 data "archive_file" "python_layer" {
   type        = "zip"
-  source_file = "${path.root}/../app/layers/python_layer.zip"
-  output_path = "${path.module}/.terraform/lambda_python_layer.zip"
+  source_dir  = "${path.root}/../app/layers"
+  output_path = "${path.module}/.terraform/python_layer.zip"
 }

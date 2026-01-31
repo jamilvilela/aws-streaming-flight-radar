@@ -111,3 +111,17 @@ variable "secrets_log_retention_days" {
   type        = number
   default     = 7
 }
+
+###############################################
+# VPC Configuration 
+variable "vpc_id" {
+  description = "VPC ID where Lambda functions will be deployed"
+  type        = string
+  default     = ""
+}
+
+variable "subnet_ids" {
+  description = "IDs das subnets para VPC config"
+  type        = list(string)
+  default     = []
+}

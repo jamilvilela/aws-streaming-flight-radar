@@ -4,10 +4,10 @@ __pycache__/
 *$py.class
 
 *.zip
-*.ipynb
 *.exemple
 credentials.json 
 *layers/ 
+.stackspot*
 
 *.exe
 # Terraform files
@@ -92,6 +92,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+src/*.ipynb
 
 # IPython
 profile_default/

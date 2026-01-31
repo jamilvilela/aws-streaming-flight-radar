@@ -65,47 +65,7 @@ else
 fi
 
 # =============================================================================
-# STEP 3: Build/Update Python Lambda Layer (python_layer.zip)
-# =============================================================================
-echo ""
-echo -e "${BLUE}📦 Atualizando Lambda Layer (python_layer.zip)...${NC}"
-
-LAYER_DIR="app/layers"
-
-if [ -d "$LAYER_DIR/python" ]; then
-    # Entra na pasta da layer
-    pushd "$LAYER_DIR" >/dev/null 2>&1
-
-    # Detecta binário do 7z
-    SEVEN_ZIP_BIN=""
-
-    if command -v 7z >/dev/null 2>&1; then
-        SEVEN_ZIP_BIN="7z"
-    elif [ -x "/c/Program Files/7-Zip/7z.exe" ]; then
-        SEVEN_ZIP_BIN="/c/Program Files/7-Zip/7z.exe"
-    elif [ -x "/mnt/c/Program Files/7-Zip/7z.exe" ]; then
-        SEVEN_ZIP_BIN="/mnt/c/Program Files/7-Zip/7z.exe"
-    fi
-
-    if [ -n "$SEVEN_ZIP_BIN" ]; then
-        echo -e "${GREEN}✅ Usando binário 7z: '$SEVEN_ZIP_BIN'${NC}"
-        # Atualiza/cria o zip com a pasta python/ na raiz do zip
-        "$SEVEN_ZIP_BIN" u python_layer.zip python/
-    else
-        echo -e "${YELLOW}⚠️  7z não encontrado no PATH nem em caminhos padrão${NC}"
-        echo -e "${YELLOW}ℹ️  Se estiver em Windows com Git Bash, você pode rodar:${NC}"
-        echo "    echo 'alias 7z=\"/c/Program Files/7-Zip/7z.exe\"' >> ~/.bashrc"
-        echo "    source ~/.bashrc"
-        echo -e "${YELLOW}⚠️  Pulando compressão da layer${NC}"
-    fi
-
-    popd >/dev/null 2>&1
-else
-    echo -e "${YELLOW}⚠️  Diretório '$LAYER_DIR/python' não encontrado, pulando compressão da layer${NC}"
-fi
-
-# =============================================================================
-# STEP 4: Navigate to infra directory
+# STEP 3: Navigate to infra directory
 # =============================================================================
 echo ""
 echo -e "${BLUE}📁 Navegando para diretório infra/...${NC}"
@@ -131,7 +91,7 @@ if [ ! -f "$TFVARS_FILE" ]; then
 fi
 
 # =============================================================================
-# STEP 5: Terraform init
+# STEP 4: Terraform init
 # =============================================================================
 echo ""
 echo -e "${BLUE}🚀 Iniciando deployment Terraform...${NC}"
@@ -147,7 +107,7 @@ echo -e "${GREEN}✅ terraform init concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 6: Terraform validate
+# STEP 5: Terraform validate
 # =============================================================================
 echo -e "${BLUE}Step 2: terraform validate${NC}"
 
@@ -160,7 +120,7 @@ echo -e "${GREEN}✅ terraform validate concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 7: Terraform plan
+# STEP 6: Terraform plan
 # =============================================================================
 echo -e "${BLUE}Step 3: terraform plan${NC}"
 
@@ -173,7 +133,7 @@ echo -e "${GREEN}✅ terraform plan concluído${NC}"
 echo ""
 
 # =============================================================================
-# STEP 8: Terraform apply
+# STEP 7: Terraform apply
 # =============================================================================
 echo -e "${BLUE}Step 4: terraform apply${NC}"
 
@@ -186,7 +146,7 @@ echo -e "${GREEN}✅ terraform apply concluído com sucesso!${NC}"
 echo ""
 
 # =============================================================================
-# STEP 9: Post-deployment validation
+# STEP 8: Post-deployment validation
 # =============================================================================
 echo -e "${BLUE}📋 Validação pós-deployment:${NC}"
 

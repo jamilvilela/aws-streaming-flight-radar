@@ -36,14 +36,14 @@
 
 ##################################################
 
+import os
 import json
 import boto3
-import os
-from datetime import datetime
-from libs.python_opensky import OpenSky
-from aiohttp import BasicAuth
 import asyncio
 import logging
+from datetime import datetime
+from python_opensky import OpenSky
+from aiohttp import BasicAuth
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -161,13 +161,17 @@ async def get_opensky_states():
             logger.error("Missing username or password in Secrets Manager secret")
             return None
         
-        api = OpenSky()
-        auth = BasicAuth(user, password)
-        api.authenticate(auth)
+        async with OpenSky() as api:
+            # api.request_timeout = 20
+            auth = BasicAuth(user, password)
+            await api.authenticate(auth)            
+            states = await api.get_states()
+
+            logger.info(
+                f"Retrieved {len(states.states) if states.states else 0} states from OpenSky API"
+            )
+            return states
         
-        states = await api.get_states()
-        logger.info(f"Retrieved {len(states.states) if states.states else 0} states from OpenSky API")
-        return states
     except Exception as e:
         logger.error(f"Error fetching states from OpenSky API: {e}")
         return None

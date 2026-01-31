@@ -44,6 +44,11 @@ variable "opensky_secret_arn" {
   type        = string
 }
 
+variable "vpc_id" {
+  description = "VPC ID onde estão os subnets da Lambda"
+  type        = string
+  default     = ""
+}
 
 variable "subnet_ids" {
   description = "IDs das subnets para VPC config"
@@ -60,7 +65,7 @@ variable "security_group_ids" {
 variable "enable_vpc" {
   description = "Habilitar VPC config para a Lambda"
   type        = bool
-  default     = false
+  default     = true
 }
 
 variable "log_retention_days" {

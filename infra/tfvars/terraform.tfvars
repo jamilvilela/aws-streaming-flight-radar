@@ -46,6 +46,14 @@ lambda_functions = {
   # }
 }
 
+vpc_id = "vpc-022139f6bee3cbdd5"
+subnet_ids = [
+    "subnet-0051cb2e25a8a1cd7",
+    "subnet-060fa607df99778da",
+    "subnet-0033d0f717071e145"
+]
+
+
 kinesis_streams = {
     flights   = { 
       stream_name = "flight-radar-kinesis-stream-flights"

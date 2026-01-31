@@ -1,9 +1,3 @@
-resource "aws_lambda_layer_version" "python_layer" {
-  filename          = data.archive_file.python_layer.output_path
-  layer_name        = "${var.project_name}-python-layer"
-  compatible_runtimes = [var.lambda_config.runtime]
-}
-
 resource "aws_lambda_function" "lambda_function" {
   filename         = data.archive_file.lambda_function.output_path
   source_code_hash = data.archive_file.lambda_function.output_base64sha256
@@ -38,7 +32,7 @@ resource "aws_lambda_function" "lambda_function" {
     for_each = var.enable_vpc && length(var.subnet_ids) > 0 ? [1] : []
     content {
       subnet_ids         = var.subnet_ids
-      security_group_ids = var.security_group_ids
+      security_group_ids = aws_security_group.lambda_egress[*].id
     }
   }
 
@@ -51,7 +45,9 @@ resource "aws_lambda_function" "lambda_function" {
 
   depends_on = [
     aws_iam_role_policy.lambda_kinesis_policy,
-    aws_iam_role_policy.lambda_logs_policy
+    aws_iam_role_policy.lambda_logs_policy,
+    aws_lambda_layer_version.python_layer,
+    aws_security_group.lambda_egress
   ]
 }
 
@@ -192,4 +188,40 @@ resource "aws_secretsmanager_secret_policy" "opensky_credentials" {
     ]
   })
   depends_on = [aws_iam_role.lambda_role]
+}
+
+resource "aws_lambda_layer_version" "python_layer" {
+  filename          = data.archive_file.python_layer.output_path
+  layer_name        = "${var.project_name}-python-layer"
+  compatible_runtimes = [var.lambda_config.runtime]
+}
+
+resource "aws_security_group" "lambda_egress" {
+  count       = var.enable_vpc && var.vpc_id != "" ? 1 : 0
+  name        = "${var.project_name}-lambda-${var.lambda_key}-egress"
+  description = "Security group para Lambda ${var.lambda_key} acessar APIs externas"
+  vpc_id      = var.vpc_id
+
+  # Só saída (sem ingress)
+  egress {
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  # (Opcional) liberar HTTP se precisar
+  # egress {
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.project_name}-lambda-${var.lambda_key}-egress"
+    }
+  )
 }

@@ -33,7 +33,6 @@ module "lambda_ingest" {
     for k, v in var.lambda_functions :
     k => v if v.enabled && v.requires_opensky_credentials
   }
-
   source              = "./modules/lambda_ingest"
   project_name        = var.project_name
   region              = var.region
@@ -42,6 +41,9 @@ module "lambda_ingest" {
   kinesis_streams     = var.kinesis_streams
   opensky_secret_arn  = module.secrets_manager.secret_arn
   tags                = merge(var.tags, each.value.tags)
+
+  enable_vpc = true
+  vpc_id = var.vpc_id
   
   depends_on = [module.kinesis_data_stream, module.secrets_manager]
 }
