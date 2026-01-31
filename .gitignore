@@ -3,6 +3,21 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+*.zip
+*.exemple
+credentials.json 
+*layers/ 
+.stackspot*
+
+*.exe
+# Terraform files
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.backup
+LICENSE.txt
+
 # C extensions
 *.so
 
@@ -77,6 +92,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
+src/*.ipynb
 
 # IPython
 profile_default/

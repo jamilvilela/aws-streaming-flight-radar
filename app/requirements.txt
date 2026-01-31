@@ -1,0 +1,5 @@
+# pip install -r ../requirements.txt -t python
+python_opensky==1.0.1
+typing-extensions==4.15.0 
+aiohttp==3.13.3
+boto3
