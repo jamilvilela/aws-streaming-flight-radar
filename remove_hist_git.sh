@@ -1,7 +1,8 @@
 # Remover do histórico com filter-branch
 git filter-branch --force --index-filter \
 "git rm --cached --ignore-unmatch \
-app/src/opensky.ipynb" \
+infra\terraform.tfstate \
+infra\terraform.tfstate.backup" \
 --prune-empty --tag-name-filter cat -- --all
 
 # Forçar push para reescrever o histórico remoto
