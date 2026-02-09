@@ -13,7 +13,7 @@ credentials.json
 # Terraform files
 .terraform/
 .terraform.lock.hcl
-*.tfstate
+# *.tfstate
 *.tfstate.*
 *.backup
 LICENSE.txt
@@ -92,7 +92,7 @@ target/
 
 # Jupyter Notebook
 .ipynb_checkpoints
-src/*.ipynb
+
 
 # IPython
 profile_default/
