@@ -1,3 +1,25 @@
+# ===== VPC NETWORKING (NAT Gateway) =====
+module "vpc_networking" {
+  count = var.nat_gateway_enabled ? 1 : 0
+
+  source = "./modules/vpc_networking"
+
+  aws_region              = var.aws_region
+  project_name            = var.project_name
+  vpc_id                  = var.vpc_id
+  vpc_cidr                = "172.31.0.0/16"
+  subnet_ids              = var.subnet_ids
+  public_subnet_cidr      = "172.31.0.0/20"
+  availability_zone       = "${var.aws_region}a"
+  nat_gateway_enabled     = var.nat_gateway_enabled
+
+  tags = local.common_tags
+
+  depends_on = [
+    # Nenhuma dependência específica
+  ]
+}
+
 module "kinesis_data_stream" {
   source     = "./modules/kinesis_data_stream"
   project_name    = var.project_name
@@ -19,8 +41,8 @@ module "secrets_manager" {
   source = "./modules/secrets_manager"
   
   project_name         = var.project_name
-  opensky_username     = var.opensky_username
-  opensky_password     = var.opensky_password
+  opensky_client_id     = var.opensky_client_id 
+  opensky_client_secret     = var.opensky_client_secret
   recovery_window_days = var.secrets_recovery_window_days
   log_retention_days   = var.secrets_log_retention_days
   tags = merge(var.tags, {
@@ -42,10 +64,14 @@ module "lambda_ingest" {
   opensky_secret_arn  = module.secrets_manager.secret_arn
   tags                = merge(var.tags, each.value.tags)
 
-  enable_vpc = true
-  vpc_id = var.vpc_id
+  enable_vpc = var.enable_vpc
+  # vpc_id = var.vpc_id
+  # subnet_ids = var.subnet_ids
   
-  depends_on = [module.kinesis_data_stream, module.secrets_manager]
+  depends_on = [
+    module.kinesis_data_stream, 
+    module.secrets_manager
+  ]
 }
 
  

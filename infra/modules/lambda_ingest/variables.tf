@@ -65,7 +65,7 @@ variable "security_group_ids" {
 variable "enable_vpc" {
   description = "Habilitar VPC config para a Lambda"
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "log_retention_days" {

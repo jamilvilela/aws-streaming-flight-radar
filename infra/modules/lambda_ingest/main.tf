@@ -12,7 +12,7 @@ resource "aws_lambda_function" "lambda_function" {
   ephemeral_storage {
     size = var.lambda_config.ephemeral_storage
   }
-
+ 
   # ON-DEMAND: 0 = sem provisionamento de concorrência (pay-per-use)
   # Valor > 0 = provisionado (custo fixo)
   reserved_concurrent_executions = var.lambda_config.reserved_concurrent_executions > 0 ? var.lambda_config.reserved_concurrent_executions : -1
@@ -47,7 +47,7 @@ resource "aws_lambda_function" "lambda_function" {
     aws_iam_role_policy.lambda_kinesis_policy,
     aws_iam_role_policy.lambda_logs_policy,
     aws_lambda_layer_version.python_layer,
-    aws_security_group.lambda_egress
+    # aws_security_group.lambda_egress
   ]
 }
 

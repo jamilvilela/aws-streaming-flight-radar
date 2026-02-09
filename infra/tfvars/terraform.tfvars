@@ -4,15 +4,24 @@ region                  = "us-east-1"
 project_name            = "flight-radar-stream"
 environment             = "production"
 
+enable_vpc = true
+nat_gateway_enabled = true
+vpc_id = "vpc-022139f6bee3cbdd5"
+subnet_ids = [
+    "subnet-0051cb2e25a8a1cd7",
+    "subnet-060fa607df99778da",
+    "subnet-0033d0f717071e145"
+]
+
+
 ############################################
 # Lambda Functions Configuration
-# Define todas as funções Lambda com suas configurações
 lambda_functions = {
   flights = {
     name              = "ingest-flights"
     handler           = "lambda_function.lambda_handler"
     runtime           = "python3.12"
-    timeout           = 30
+    timeout           = 90
     memory_size       = 512
     ephemeral_storage = 512
     schedule          = "rate(5 minutes)"
@@ -46,13 +55,6 @@ lambda_functions = {
   # }
 }
 
-vpc_id = "vpc-022139f6bee3cbdd5"
-subnet_ids = [
-    "subnet-0051cb2e25a8a1cd7",
-    "subnet-060fa607df99778da",
-    "subnet-0033d0f717071e145"
-]
-
 
 kinesis_streams = {
     flights   = { 
@@ -64,15 +66,15 @@ kinesis_streams = {
 datalake_role_name = "role-datalake-analytics"
 
 buckets = {
-  workspace = "lakehouse-workspace-331504768406"
-  landing   = "lakehouse-landing-331504768406"
-  raw       = "lakehouse-raw-331504768406"
+  workspace = "lakehouse-workspace-33150"
+  landing   = "lakehouse-landing-331504"
+  raw       = "lakehouse-raw-331504"
 }
 
 # OpenSky API Credentials - CONFIGURE VIA VARIÁVEIS DE AMBIENTE!
 # ⚠️  NÃO COMMIT CREDENCIAIS REAIS AQUI
-# Use: export TF_VAR_opensky_username="seu_usuario"
-#      export TF_VAR_opensky_password="sua_senha"
+# Use: export TF_VAR_OPENSKY_CLIENT_ID="seu_usuario" 
+#      export TF_VAR_OPENSKY_CLIENT_SECRET="sua_senha"
 
 
 # AWS Secrets Manager Configuration
