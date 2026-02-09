@@ -86,14 +86,14 @@ variable "lambda_functions" {
   }
 }
 
-variable "opensky_username" {
-  description = "OpenSky API username (will be stored in AWS Secrets Manager)"
+variable "opensky_client_id" {
+  description = "OpenSky API client_id (will be stored in AWS Secrets Manager)"
   type        = string
   sensitive   = true
 }
 
-variable "opensky_password" {
-  description = "OpenSky API password (will be stored in AWS Secrets Manager)"
+variable "opensky_client_secret" {
+  description = "OpenSky API client_secret (will be stored in AWS Secrets Manager)"
   type        = string
   sensitive   = true
 }
@@ -114,6 +114,12 @@ variable "secrets_log_retention_days" {
 
 ###############################################
 # VPC Configuration 
+variable "enable_vpc" {
+  description = "Habilitar VPC config para a Lambda"
+  type        = bool
+  default     = false
+}
+
 variable "vpc_id" {
   description = "VPC ID where Lambda functions will be deployed"
   type        = string
@@ -125,3 +131,10 @@ variable "subnet_ids" {
   type        = list(string)
   default     = []
 }
+
+variable "nat_gateway_enabled" {
+  type        = bool
+  default     = false
+  description = "Enable NAT Gateway for Lambda in VPC"
+}
+

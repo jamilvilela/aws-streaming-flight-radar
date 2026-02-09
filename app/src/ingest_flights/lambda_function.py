@@ -1,227 +1,250 @@
-##################################################
-# Lambda function to ingest flight data from OpenSky API and send to Kinesis Data Stream
-
-# Método	Descrição
-
-# get_states(bounding_box=None)	
-#     Recupera vetores de estado de aeronaves para um tempo determinado. Opcionalmente filtra por uma caixa delimitadora (bounding box)
-
-# get_own_states(time=0)	
-#     Recupera vetores de estado apenas dos seus próprios sensores
-
-# authenticate(auth, contributing_user=False)	
-#     Autentica o usuário com BasicAuth. Se contributing_user=True, você recebe créditos extras
-
-# calculate_credit_costs(bounding_box)	
-#     Calcula quantos créditos uma requisição vai custar
-
-# remaining_credits()	
-#     Retorna o saldo de créditos disponíveis
-
-# get_bounding_box(latitude, longitude, radius)	
-#     Cria uma caixa delimitadora com base em latitude, longitude e raio
-
-# close()	
-#     Fecha a sessão HTTP
-
-
-# Propriedades Disponíveis:
-# api_host - Host da API
-# request_timeout - Timeout das requisições
-# session - Sessão HTTP usada
-# is_authenticated - Verifica se está autenticado
-# is_contributing_user - Verifica se é usuário contribuidor
-# opensky_credits - Número de créditos disponíveis
-# timezone - Timezone configurado
-
-##################################################
-
 import os
 import json
-import boto3
-import asyncio
 import logging
+import boto3
+import requests
+from utils.models import StateVector
 from datetime import datetime
-from python_opensky import OpenSky
-from aiohttp import BasicAuth
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
 
-# AWS Secrets Manager client
-secrets_client = boto3.client('secretsmanager')
+# AWS clients
+secrets_client = boto3.client("secretsmanager")
+kinesis_client = boto3.client("kinesis")
+
+# OpenSky OAuth2 + API endpoints
+OPENSKY_TOKEN_URL = (
+    "https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token"
+)
+OPENSKY_STATES_URL = "https://opensky-network.org/api/states/all"
 
 
-def convert_states_response_to_json(states_response):
+
+def _get_opensky_credentials_from_secret():
     """
-    Converte um objeto StatesResponse em uma estrutura JSON.
-    
-    Args:
-        states_response: Objeto StatesResponse do python_opensky
-        
-    Returns:
-        dict: Estrutura JSON com os dados dos voos
+    Lê client_id e client_secret do AWS Secrets Manager.
+
+    Espera que o secret (apontado por OPENSKY_SECRET_ARN) tenha o formato:
+    {
+      "client_id": "xxxx",
+      "client_secret": "yyyy"
+    }
     """
+    secret_arn = os.environ.get("OPENSKY_SECRET_ARN")
+    if not secret_arn:
+        logger.error("Missing OPENSKY_SECRET_ARN in environment variables")
+        return None, None
+
+    try:
+        resp = secrets_client.get_secret_value(SecretId=secret_arn)
+        secret_data = json.loads(resp["SecretString"])
+        client_id = secret_data.get("client_id")
+        client_secret = secret_data.get("client_secret")
+        if not client_id or not client_secret:
+            logger.error("Credentials is missing in secret")
+            return None, None
+        return client_id, client_secret
+    except Exception as e:
+        logger.error(f"Error retrieving OpenSky credentials from Secrets Manager: {e}")
+        return None, None
+
+def get_opensky_access_token():
+    """
+    Autentica na OpenSky via OAuth2 Client Credentials e retorna o access_token (Bearer).
+    """
+    client_id, client_secret = _get_opensky_credentials_from_secret()
+    if not client_id or not client_secret:
+        return None
+
+    data = {
+        "grant_type": "client_credentials",
+        "client_id": client_id,
+        "client_secret": client_secret,
+    }
+
+    try:
+        resp = requests.post(OPENSKY_TOKEN_URL, data=data, timeout=60)
+        resp.raise_for_status()
+        access_token = resp.json().get("access_token")
+        if not access_token:
+            logger.error("No access_token in OpenSky auth response")
+            return None
+        logger.info("Successfully obtained OpenSky access token")
+        return access_token
+    except requests.RequestException as e:
+        logger.error(f"Error obtaining OpenSky access token: {e}")
+        return None
+
+
+def convert_states_response_to_json(states: list[StateVector]) -> dict:
     json_data = {
         "timestamp": datetime.now().isoformat(),
-        "total_states": len(states_response.states) if states_response.states else 0,
-        "states": []
+        "total_states": 0,
+        "states": [],
     }
-    
-    if states_response.states:
-        for state in states_response.states:
-            state_dict = {
-                "icao24": state.icao24,
-                "callsign": state.callsign.strip() if state.callsign else None,
-                "origin_country": state.origin_country,
-                "time_position": state.time_position,
-                "last_contact": state.last_contact,
-                "longitude": state.longitude,
-                "latitude": state.latitude,
-                "geo_altitude": state.geo_altitude,
-                "on_ground": state.on_ground,
-                "velocity": state.velocity,
-                "true_track": state.true_track,
-                "vertical_rate": state.vertical_rate,
-                "barometric_altitude": state.barometric_altitude,
-                "transponder_code": state.transponder_code,
-                "special_purpose_indicator": state.special_purpose_indicator,
-                "position_source": str(state.position_source),
-                "category": str(state.category)
-            }
-            # Filtra apenas voos do Brasil
-            if state.origin_country == "Brazil":
-                json_data["states"].append(state_dict)
-    
+    for state in states:
+        if state.origin_country != "Brazil":
+            continue
+        json_data["states"].append(state.to_dict())
+
+    json_data["total_states"] = len(json_data["states"])
     return json_data
 
+def send_state_to_kinesis(state_dict: dict) -> bool:
+    """Envia um único registro para o Kinesis.
 
-def send_state_to_kinesis(state_dict, stream_name):
+    Lê o nome do stream da variável de ambiente KINESIS_STREAM.
+    Retorna True em caso de sucesso, False em caso de erro.
     """
-    Sends a single state vector to a Kinesis data stream.
-    
-    Args:
-        state_dict (dict): A state vector dictionary
-        stream_name (str): Name of the Kinesis stream
-    """
-    kinesis_client = boto3.client('kinesis')
-    
+    stream_name = os.environ.get("KINESIS_STREAM")
+    if not stream_name:
+        logger.error("KINESIS_STREAM environment variable not set")
+        return False
+
     try:
-        response = kinesis_client.put_record(
+        kinesis_client.put_record(
             StreamName=stream_name,
             Data=json.dumps(state_dict),
-            PartitionKey=state_dict['icao24']  # Use ICAO24 as partition key
+            PartitionKey=state_dict.get("icao24") or "unknown",
         )
-        logger.info(f"State {state_dict['icao24']} sent to Kinesis successfully")
-        return response
+        logger.info(
+            f"State {state_dict.get('icao24', 'unknown')} sent to Kinesis successfully"
+        )
+        return True
     except Exception as e:
         logger.error(f"Error sending state to Kinesis: {e}")
-        return None
+        return False
 
 
-def send_states_to_kinesis(json_resultado, stream_name):
+def send_states_to_kinesis(json_resultado: dict) -> bool:
+    """Envia todos os estados para o Kinesis.
+
+    Retorna True se todos forem enviados com sucesso, False caso ocorra algum erro.
     """
-    Sends all state vectors from json_resultado to Kinesis stream.
-    
-    Args:
-        json_resultado (dict): Output from convert_states_response_to_json()
-        stream_name (str): Name of the Kinesis stream
-    """
-    for state in json_resultado['states']:
-        send_state_to_kinesis(state, stream_name)
-    logger.info(f"Sent {json_resultado['total_states']} states to Kinesis stream '{stream_name}'")
+    all_ok = True
+    for state in json_resultado["states"]:
+        ok = send_state_to_kinesis(state)
+        if not ok:
+            all_ok = False
+    logger.info(
+        f"Sent {len(json_resultado['states'])} states to Kinesis stream (check logs for failures)"
+    )
+    return all_ok
 
 
-async def get_opensky_states():
+def get_opensky_states(access_token):
     """
-    Fetch flight states from OpenSky API with authentication.
-    
-    Returns:
-        StatesResponse: Object containing state vectors
+    Chama o endpoint /api/states/all usando Bearer token e
+    retorna uma lista de StateVector.
     """
+    headers = {"Authorization": f"Bearer {access_token}"}
+
     try:
-        # Get OpenSky credentials from AWS Secrets Manager
-        secret_arn = os.environ.get('OPENSKY_SECRET_ARN')
-        
-        if not secret_arn:
-            logger.error("Missing OPENSKY_SECRET_ARN in environment variables")
-            return None
-        
-        # Retrieve secret from AWS Secrets Manager
-        try:
-            secret_response = secrets_client.get_secret_value(SecretId=secret_arn)
-            secret_data = json.loads(secret_response['SecretString'])
-            user = secret_data.get('username')
-            password = secret_data.get('password')
-        except Exception as e:
-            logger.error(f"Error retrieving OpenSky credentials from Secrets Manager: {e}")
-            return None
-        
-        if not user or not password:
-            logger.error("Missing username or password in Secrets Manager secret")
-            return None
-        
-        async with OpenSky() as api:
-            # api.request_timeout = 20
-            auth = BasicAuth(user, password)
-            await api.authenticate(auth)            
-            states = await api.get_states()
+        resp = requests.get(OPENSKY_STATES_URL, headers=headers, timeout=15)
+        resp.raise_for_status()
+        body = resp.json()
+    except requests.RequestException as e:
+        logger.error(f"Error calling OpenSky states API: {e}")
+        return []
 
-            logger.info(
-                f"Retrieved {len(states.states) if states.states else 0} states from OpenSky API"
-            )
-            return states
-        
-    except Exception as e:
-        logger.error(f"Error fetching states from OpenSky API: {e}")
-        return None
+    raw_states = body.get("states", []) or []
+    states: list[StateVector] = []
+
+    for row in raw_states:
+        try:
+            state = StateVector.from_api_response(row)
+            states.append(state)
+        except Exception as e:
+            logger.warning(f"Failed to parse state vector: {e}")
+
+    logger.info(f"Retrieved {len(states)} state vectors from OpenSky API")
+    return states
+
 
 
 def lambda_handler(event, context):
     """
     Main Lambda handler that orchestrates the flight data ingestion pipeline.
     """
+    # DEBUG: Verificar DNS
+    import socket
     try:
-        # Get Kinesis stream name from environment
-        stream_name = os.environ.get('KINESIS_STREAM')
-        if not stream_name:
-            logger.error("KINESIS_STREAM environment variable not set")
+        logger.info("Testing DNS resolution...")
+        ip = socket.gethostbyname('auth.opensky-network.org')
+        logger.info(f"✅ DNS resolved: auth.opensky-network.org → {ip}")
+    except socket.gaierror as e:
+        logger.error(f"❌ DNS resolution failed: {e}")
+        return {
+            "statusCode": 503,
+            "body": json.dumps({"error": f"DNS error: {str(e)}"})
+        }
+    
+    # DEBUG: Verificar conectividade TCP
+    try:
+        logger.info("Testing TCP connectivity to port 443...")
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.settimeout(30)
+        result = sock.connect_ex((ip, 443))
+        sock.close()
+        
+        if result == 0:
+            logger.info("✅ Port 443 is open")
+        else:
+            logger.error(f"❌ Port 443 is blocked (errno: {result})")
+    except Exception as e:
+        logger.error(f"❌ Error testing TCP: {e}")
+        
+    try:
+        # 1) Autenticar na OpenSky (OAuth2 Client Credentials)
+        logger.info("Getting OpenSky access token...")
+        access_token = get_opensky_access_token()
+        if not access_token:
             return {
-                'statusCode': 400,
-                'body': json.dumps('Missing KINESIS_STREAM environment variable')
+                "statusCode": 500,
+                "body": json.dumps("Failed to obtain OpenSky access token"),
             }
-        
-        # Fetch states from OpenSky API
+
+        # 2) Buscar estados de voos
         logger.info("Starting to fetch states from OpenSky API...")
-        states = asyncio.run(get_opensky_states())
-        
+        states = get_opensky_states(access_token)
         if not states:
             logger.warning("No states retrieved from OpenSky API")
             return {
-                'statusCode': 500,
-                'body': json.dumps('Failed to retrieve states from OpenSky API')
+                "statusCode": 500,
+                "body": json.dumps("Failed to retrieve states from OpenSky API"),
             }
-        
-        # Convert states to JSON format
+
+        # 3) Converter para JSON
         logger.info("Converting states to JSON format...")
         json_resultado = convert_states_response_to_json(states)
-        
-        # Send states to Kinesis
-        logger.info(f"Sending {json_resultado['total_states']} states to Kinesis stream '{stream_name}'...")
-        send_states_to_kinesis(json_resultado, stream_name)
-        
+
+        # 4) Enviar para Kinesis
+        logger.info(
+            f"Sending {len(json_resultado['states'])} states to Kinesis stream..."
+        )
+        ok = send_states_to_kinesis(json_resultado)
+        if not ok:
+            # erro pode ser KINESIS_STREAM ausente ou falha no put_record
+            return {
+                "statusCode": 400,
+                "body": json.dumps(
+                    "Failed to send some/all states to Kinesis "
+                    "(check KINESIS_STREAM env var and Lambda logs)"
+                ),
+            }
+
         return {
-            'statusCode': 200,
-            'body': json.dumps({
-                'message': 'Flight data ingestion completed successfully',
-                'states_processed': json_resultado['total_states'],
-                'timestamp': json_resultado['timestamp']
-            })
+            "statusCode": 200,
+            "body": json.dumps(
+                {
+                    "message": "Flight data ingestion completed successfully",
+                    "states_processed": len(json_resultado["states"]),
+                    "timestamp": json_resultado["timestamp"],
+                }
+            ),
         }
-    
     except Exception as e:
         logger.error(f"Lambda handler error: {e}")
-        return {
-            'statusCode': 500,
-            'body': json.dumps(f'Error: {str(e)}')
-        }
+        return {"statusCode": 500, "body": json.dumps(f"Error: {str(e)}")}
+

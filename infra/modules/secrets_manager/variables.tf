@@ -3,14 +3,14 @@ variable "project_name" {
   type        = string
 }
 
-variable "opensky_username" {
-  description = "OpenSky API username"
+variable "opensky_client_id" {
+  description = "OpenSky API client_id"
   type        = string
   sensitive   = true
 }
 
-variable "opensky_password" {
-  description = "OpenSky API password"
+variable "opensky_client_secret" {
+  description = "OpenSky API client_secret"
   type        = string
   sensitive   = true
 }
