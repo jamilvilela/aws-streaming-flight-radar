@@ -12,8 +12,8 @@ if [ -f .env ]; then
     source .env
     
     # Convert to Terraform variables
-    export TF_VAR_opensky_username="$OPENSKY_USERNAME"
-    export TF_VAR_opensky_password="$OPENSKY_PASSWORD"
+    export TF_VAR_opensky_client_id="$OPENSKY_CLIENT_ID"
+    export TF_VAR_opensky_client_secret="$OPENSKY_CLIENT_SECRET"
     
     echo "✅ Variáveis carregadas com sucesso!"
 fi

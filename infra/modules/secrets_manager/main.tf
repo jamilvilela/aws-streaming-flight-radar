@@ -16,8 +16,8 @@ resource "aws_secretsmanager_secret" "opensky_credentials" {
 resource "aws_secretsmanager_secret_version" "opensky_credentials" {
   secret_id = aws_secretsmanager_secret.opensky_credentials.id
   secret_string = jsonencode({
-    username = var.opensky_username
-    password = var.opensky_password
+    client_id = var.opensky_client_id
+    client_secret = var.opensky_client_secret
   })
 }
 
