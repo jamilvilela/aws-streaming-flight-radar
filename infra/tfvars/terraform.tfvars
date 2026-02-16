@@ -1,11 +1,11 @@
 control_account = "331504768406"
 
-region                  = "us-east-1"
+aws_region              = "us-east-1"
 project_name            = "flight-radar-stream"
 environment             = "production"
 
-enable_vpc = true
-nat_gateway_enabled = true
+enable_vpc = false
+nat_gateway_enabled = false
 vpc_id = "vpc-022139f6bee3cbdd5"
 subnet_ids = [
     "subnet-0051cb2e25a8a1cd7",
@@ -25,7 +25,7 @@ lambda_functions = {
     memory_size       = 512
     ephemeral_storage = 512
     schedule          = "rate(5 minutes)"
-    enabled           = true
+    enabled           = false
     kinesis_stream    = "flight-radar-stream-flights"
     requires_opensky_credentials = true
     reserved_concurrent_executions = 0  # 0 = ON-DEMAND (sem custo fixo)
