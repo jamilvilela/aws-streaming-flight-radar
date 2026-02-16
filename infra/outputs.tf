@@ -135,8 +135,8 @@ output "nat_gateway_info" {
   value = var.nat_gateway_enabled ? {
     nat_gateway_id     = module.vpc_networking[0].nat_gateway_id
     nat_gateway_ip     = module.vpc_networking[0].nat_gateway_public_ip
-    public_subnet_id   = module.vpc_networking[0].public_subnet_id
-    private_route_table_id = module.vpc_networking[0].private_route_table_id
+    # public_subnet_id   = module.vpc_networking[0].public_subnet_id
+    # private_route_table_id = module.vpc_networking[0].private_route_table_id
   } : null
   description = "NAT Gateway information"
 }

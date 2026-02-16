@@ -106,7 +106,7 @@ resource "aws_iam_role_policy" "lambda_kinesis_policy" {
         "kinesis:ListStreams",
         "kinesis:DescribeStream"
       ]
-      Resource = "arn:aws:kinesis:${var.region}:${data.aws_caller_identity.current.account_id}:stream/${var.kinesis_streams[var.lambda_key].stream_name}"
+      Resource = "arn:aws:kinesis:${var.aws_region}:${data.aws_caller_identity.current.account_id}:stream/${var.kinesis_streams[var.lambda_key].stream_name}"
     }]
   })
 }
@@ -124,7 +124,7 @@ resource "aws_iam_role_policy" "lambda_logs_policy" {
         "logs:CreateLogStream",
         "logs:PutLogEvents"
       ]
-      Resource = "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:*"
+      Resource = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:*"
     }]
   })
 }

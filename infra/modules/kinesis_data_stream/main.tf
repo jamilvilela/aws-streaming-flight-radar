@@ -2,12 +2,11 @@ resource "aws_kinesis_stream" "kinesis_stream" {
   for_each = var.kinesis_streams
   
   name            = each.value.stream_name
-  retention_period = var.retention_hours  # Período de retenção configurável
+  retention_period = var.retention_hours  
 
-  # ON-DEMAND: Escala automaticamente com a demanda (sem shards fixos)
-  # Perfeito para volume baixo e previsível (1.440 inv/dia)
+
   stream_mode_details {
-    stream_mode = "ON_DEMAND"  # Pay-per-use, sem gerenciamento de shards
+    stream_mode = "ON_DEMAND"  
   }
 
   tags = merge(
@@ -20,7 +19,6 @@ resource "aws_kinesis_stream" "kinesis_stream" {
   )
 }
 
-# CloudWatch Alarms para monitoramento
 resource "aws_cloudwatch_metric_alarm" "kinesis_iterator_age" {
   for_each = var.kinesis_streams
 

@@ -1,23 +1,11 @@
-# ===== VPC NETWORKING (NAT Gateway) =====
 module "vpc_networking" {
-  count = var.nat_gateway_enabled ? 1 : 0
-
-  source = "./modules/vpc_networking"
-
-  aws_region              = var.aws_region
-  project_name            = var.project_name
-  vpc_id                  = var.vpc_id
-  vpc_cidr                = "172.31.0.0/16"
-  subnet_ids              = var.subnet_ids
-  public_subnet_cidr      = "172.31.0.0/20"
-  availability_zone       = "${var.aws_region}a"
-  nat_gateway_enabled     = var.nat_gateway_enabled
-
-  tags = local.common_tags
-
-  depends_on = [
-    # Nenhuma dependência específica
-  ]
+  source             = "./modules/vpc_networking"
+  count              = var.nat_gateway_enabled ? 1 : 0
+  project_name       = var.project_name
+  vpc_id             = var.vpc_id
+  subnet_ids         = var.subnet_ids
+  nat_gateway_enabled = var.nat_gateway_enabled
+  tags               = var.tags
 }
 
 module "kinesis_data_stream" {
@@ -57,7 +45,7 @@ module "lambda_ingest" {
   }
   source              = "./modules/lambda_ingest"
   project_name        = var.project_name
-  region              = var.region
+  aws_region          = var.aws_region
   lambda_config       = each.value
   lambda_key          = each.key
   kinesis_streams     = var.kinesis_streams
