@@ -95,8 +95,8 @@ def convert_states_response_to_json(states: list[StateVector]) -> dict:
         "states": [],
     }
     for state in states:
-        if state.origin_country != "Brazil":
-            continue
+        # if state.origin_country != "Brazil":
+        #     continue
         json_data["states"].append(state.to_dict())
 
     json_data["total_states"] = len(json_data["states"])
