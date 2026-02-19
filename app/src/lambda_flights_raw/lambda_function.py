@@ -1,13 +1,14 @@
 import os
+import sys
 import json
 import logging
 import boto3
 import requests
-from utils.models import StateVector
 from datetime import datetime
+from dotenv import load_dotenv
+from utils.models import StateVector
 
-logger = logging.getLogger()
-logger.setLevel(logging.INFO)
+load_dotenv()
 
 # AWS clients
 secrets_client = boto3.client("secretsmanager")
@@ -19,6 +20,16 @@ OPENSKY_TOKEN_URL = (
 )
 OPENSKY_STATES_URL = "https://opensky-network.org/api/states/all"
 
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:
+    handler = logging.StreamHandler(sys.stdout)
+    formatter = logging.Formatter(
+        "%(asctime)s - %(levelname)s - %(name)s - %(message)s"
+    )
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
 
 
 def _get_opensky_credentials_from_secret():
@@ -84,52 +95,65 @@ def convert_states_response_to_json(states: list[StateVector]) -> dict:
         "states": [],
     }
     for state in states:
-        if state.origin_country != "Brazil":
-            continue
+        # if state.origin_country != "Brazil":
+        #     continue
         json_data["states"].append(state.to_dict())
 
     json_data["total_states"] = len(json_data["states"])
     return json_data
 
-def send_state_to_kinesis(state_dict: dict) -> bool:
-    """Envia um único registro para o Kinesis.
+def send_states_to_kinesis(json_resultado: dict, batch_size: int = 500) -> bool:
+    """
+    Envia todos os estados para o Kinesis usando PutRecords em batch.
 
-    Lê o nome do stream da variável de ambiente KINESIS_STREAM.
-    Retorna True em caso de sucesso, False em caso de erro.
+    Retorna True se todos forem enviados com sucesso, False caso haja falhas.
     """
     stream_name = os.environ.get("KINESIS_STREAM")
     if not stream_name:
         logger.error("KINESIS_STREAM environment variable not set")
         return False
 
-    try:
-        kinesis_client.put_record(
-            StreamName=stream_name,
-            Data=json.dumps(state_dict),
-            PartitionKey=state_dict.get("icao24") or "unknown",
-        )
-        logger.info(
-            f"State {state_dict.get('icao24', 'unknown')} sent to Kinesis successfully"
-        )
+    states = json_resultado["states"]
+    if not states:
+        logger.info("No states to send to Kinesis")
         return True
-    except Exception as e:
-        logger.error(f"Error sending state to Kinesis: {e}")
-        return False
 
+    logger.info(f"Sending {len(states)} states to Kinesis stream '{stream_name}' in batches of {batch_size}...")
 
-def send_states_to_kinesis(json_resultado: dict) -> bool:
-    """Envia todos os estados para o Kinesis.
-
-    Retorna True se todos forem enviados com sucesso, False caso ocorra algum erro.
-    """
     all_ok = True
-    for state in json_resultado["states"]:
-        ok = send_state_to_kinesis(state)
-        if not ok:
+
+    # Monta todos os records
+    records = [
+        {
+            "Data": json.dumps(state),
+            "PartitionKey": state.get("icao24") or "unknown",
+        }
+        for state in states
+    ]
+
+    # Envia em lotes de até 500 registros (limite do Kinesis PutRecords)
+    for i in range(0, len(records), batch_size):
+        batch = records[i : i + batch_size]
+        try:
+            response = kinesis_client.put_records(
+                StreamName=stream_name,
+                Records=batch,
+            )
+            failed = response.get("FailedRecordCount", 0)
+            if failed > 0:
+                all_ok = False
+                logger.error(
+                    f"Batch {i//batch_size} - {failed}/{len(batch)} records failed"
+                )
+            else:
+                logger.info(
+                    f"Batch {i//batch_size} - sent {len(batch)} records successfully"
+                )
+        except Exception as e:
             all_ok = False
-    logger.info(
-        f"Sent {len(json_resultado['states'])} states to Kinesis stream (check logs for failures)"
-    )
+            logger.error(f"Error sending batch {i//batch_size} to Kinesis: {e}")
+
+    logger.info(f"Finished sending {len(states)} states to Kinesis (batched)")
     return all_ok
 
 

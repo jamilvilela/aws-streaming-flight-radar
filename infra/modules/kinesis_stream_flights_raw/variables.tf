@@ -25,11 +25,11 @@ variable "tags" {
   default     = {}
 }
 
-variable "kinesis_streams" {
-  description = "Mapa de streams Kinesis e suas configurações"
-  type = map(object({
-    stream_name = string
-    shard_count = number  # Ignorado em modo ON_DEMAND, mas mantido para compatibilidade
-  }))
-  default = {}
+variable "kinesis_stream" {
+  description = "Configuração de um único stream Kinesis"
+  type = object({
+    name = string
+    mode = string
+  })
 }
+
