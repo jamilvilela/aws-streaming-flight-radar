@@ -1,9 +1,9 @@
-output "secret_arn" {
+output "secret_opensky_credentials_arn" {
   description = "ARN of the OpenSky credentials secret"
   value       = aws_secretsmanager_secret.opensky_credentials.arn
 }
 
-output "secret_id" {
+output "secret_opensky_credentials_id" {
   description = "ID/Name of the OpenSky credentials secret"
   value       = aws_secretsmanager_secret.opensky_credentials.id
 }

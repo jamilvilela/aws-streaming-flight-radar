@@ -1,28 +1,23 @@
-resource "aws_kinesis_stream" "kinesis_stream" {
-  for_each = var.kinesis_streams
-  
-  name            = each.value.stream_name
-  retention_period = var.retention_hours  
-
+resource "aws_kinesis_stream" "kinesis_stream_flights_raw" {
+  name             = var.kinesis_stream.name
+  retention_period = var.retention_hours
 
   stream_mode_details {
-    stream_mode = "ON_DEMAND"  
+    stream_mode = var.kinesis_stream.mode  
   }
 
   tags = merge(
     var.tags,
     {
-      Name        = each.value.stream_name
-      StreamType  = each.key
+      Name        = var.kinesis_stream.name
+      StreamType  = "fights-raw"
       Environment = var.environment
     }
   )
 }
 
 resource "aws_cloudwatch_metric_alarm" "kinesis_iterator_age" {
-  for_each = var.kinesis_streams
-
-  alarm_name          = "${each.value.stream_name}-high-iterator-age"
+  alarm_name          = "${aws_kinesis_stream.kinesis_stream_flights_raw.name}-high-iterator-age"
   comparison_operator = "GreaterThanThreshold"
   evaluation_periods  = 2
   metric_name         = "GetRecords.IteratorAgeMilliseconds"
@@ -32,24 +27,22 @@ resource "aws_cloudwatch_metric_alarm" "kinesis_iterator_age" {
   threshold           = 60000  # 60 segundos
   alarm_description   = "Alert quando registros não são processados por mais de 60 segundos"
   dimensions = {
-    StreamName = aws_kinesis_stream.kinesis_stream[each.key].name
+    StreamName = aws_kinesis_stream.kinesis_stream_flights_raw.name
   }
 }
 
 resource "aws_cloudwatch_metric_alarm" "kinesis_incoming_records" {
-  for_each = var.kinesis_streams
-
-  alarm_name          = "${each.value.stream_name}-no-incoming-records"
+   alarm_name          = "${aws_kinesis_stream.kinesis_stream_flights_raw.name}-no-incoming-records"
   comparison_operator = "LessThanThreshold"
   evaluation_periods  = 2
   metric_name         = "IncomingRecords"
   namespace           = "AWS/Kinesis"
-  period              = 300
+  period              = 600
   statistic           = "Sum"
   threshold           = 1
-  alarm_description   = "Alert quando nenhum registro entra no stream por 5+ minutos"
+  alarm_description   = "Alert quando nenhum registro entra no stream por 10+ minutos"
   dimensions = {
-    StreamName = aws_kinesis_stream.kinesis_stream[each.key].name
+    StreamName = aws_kinesis_stream.kinesis_stream_flights_raw.name
   }
 }
 
