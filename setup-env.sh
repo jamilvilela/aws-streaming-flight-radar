@@ -27,26 +27,11 @@ fi
 source .env
 echo -e "${GREEN}✅ Variáveis carregadas com sucesso!${NC}"
 
-# Verify OpenSky credentials are set
-if [ -z "$OPENSKY_CLIENT_ID" ] || [ -z "$OPENSKY_CLIENT_SECRET" ]; then
-    echo -e "${RED}❌ Credenciais OpenSky não estão definidas em .env${NC}"
-    echo "   Edite .env e adicione OPENSKY_CLIENT_ID e OPENSKY_CLIENT_SECRET"
-    exit 1
-fi
-
-# Convert to Terraform variables (TF_VAR_*)
-export TF_VAR_opensky_client_id="$OPENSKY_CLIENT_ID"
-export TF_VAR_opensky_client_secret="$OPENSKY_CLIENT_SECRET"
-
 # Export AWS region if set
 if [ -n "$AWS_REGION" ]; then
     export TF_VAR_region="$AWS_REGION"
 fi
 
-echo -e "${GREEN}🔐 Credenciais configuradas como variáveis Terraform${NC}"
-echo "   TF_VAR_opensky_client_id: ${OPENSKY_CLIENT_ID:0:3}***"
-echo "   TF_VAR_opensky_client_secret: ${OPENSKY_CLIENT_SECRET:0:3}***"
-echo -e "${BLUE}ℹ️  Terraform usa automaticamente: TF_VAR_* > terraform.tfvars > defaults${NC}"
 
 # =============================================================================
 # STEP 2: Verify AWS credentials are set
@@ -74,7 +59,6 @@ PYTHON_BIN="${PYTHON_BIN:-python3}"
 LAYER_ROOT_DIR="app/layers"
 LAYER_SITEPACKAGES_DIR="$LAYER_ROOT_DIR/python"
 REQ_FILE="app/requirements.txt"
-# LOCAL_OPENSKY_PACKAGE_DIR="app/opensky-api/python"  # ajuste se o caminho for diferente
 
 # Verifica se requirements.txt existe
 if [ ! -f "$REQ_FILE" ]; then
@@ -96,14 +80,6 @@ pushd "$LAYER_ROOT_DIR" >/dev/null 2>&1
 
 echo -e "${BLUE}📥 Instalando dependências de '$REQ_FILE' em '$LAYER_SITEPACKAGES_DIR'...${NC}"
 "$PYTHON_BIN" -m pip install -r ../requirements.txt -t python
-
-# # Se existir o pacote local opensky-api/python, instala também na layer
-# if [ -d "../opensky-api/python" ]; then
-#   echo -e "${BLUE}📥 Instalando pacote local opensky-api em '$LAYER_SITEPACKAGES_DIR'...${NC}"
-#   "$PYTHON_BIN" -m pip install ../opensky-api/python -t python
-# else
-#   echo -e "${YELLOW}⚠️ Diretório '../opensky-api/python' não encontrado; pulando instalação de python_opensky local${NC}"
-# fi
 
 popd >/dev/null 2>&1
 
@@ -199,29 +175,6 @@ echo -e "${BLUE}📋 Validação pós-deployment:${NC}"
 if ! command -v jq >/dev/null 2>&1; then
   echo -e "${YELLOW}⚠️ jq não encontrado. Instale jq para validação detalhada dos outputs.${NC}"
   echo -e "${YELLOW}   Ex.: sudo apt-get install jq  ou  brew install jq${NC}"
-fi
-
-# -----------------------------------------------------------------------------
-# Check if Secrets Manager secret was created (using output: secrets_manager_info)
-# -----------------------------------------------------------------------------
-echo -e "${BLUE} • Verificando AWS Secrets Manager...${NC}"
-
-SECRET_INFO_JSON=$(terraform output -json secrets_manager_info 2>/dev/null || echo "")
-
-if [ -n "$SECRET_INFO_JSON" ] && [ "$SECRET_INFO_JSON" != "null" ]; then
-  if command -v jq >/dev/null 2>&1; then
-    SECRET_ARN=$(echo "$SECRET_INFO_JSON" | jq -r '.opensky_credentials.secret_arn // empty')
-    if [ -n "$SECRET_ARN" ] && [ "$SECRET_ARN" != "null" ]; then
-      echo -e "${GREEN} ✅ Secret criado: $SECRET_ARN${NC}"
-    else
-      echo -e "${YELLOW} ⚠️ Output 'secrets_manager_info' encontrado, mas não foi possível extrair 'secret_arn'${NC}"
-      echo -e "${YELLOW}    Valor bruto:${NC} $SECRET_INFO_JSON"
-    fi
-  else
-    echo -e "${GREEN} ✅ Output 'secrets_manager_info' encontrado (instale jq para ver detalhes)${NC}"
-  fi
-else
-  echo -e "${YELLOW} ⚠️ Não foi possível recuperar informações do Secrets Manager (output 'secrets_manager_info')${NC}"
 fi
 
 # -----------------------------------------------------------------------------

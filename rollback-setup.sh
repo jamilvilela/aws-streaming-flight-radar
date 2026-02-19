@@ -54,6 +54,18 @@ echo ""
 
 terraform destroy -var-file="tfvars/terraform.tfvars" -auto-approve
 
+echo "🧹 Limpando Elastic IPs órfãos com tag Name=${PROJECT_NAME}-eip-nat..."
+
+aws ec2 describe-addresses \
+  --filters "Name=tag:Name,Values=${PROJECT_NAME}-eip-nat" \
+  --query "Addresses[].AllocationId" \
+  --output text | while read -r ALLOC_ID; do
+    if [ -n "$ALLOC_ID" ]; then
+      echo " - Releasing EIP $ALLOC_ID"
+      aws ec2 release-address --allocation-id "$ALLOC_ID"
+    fi
+  done
+
 if [ $? -ne 0 ]; then
     echo "❌ terraform destroy falhou"
     exit 1
