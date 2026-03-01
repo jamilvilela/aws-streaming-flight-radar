@@ -12,11 +12,22 @@ buckets = {
   trusted   = "lakehouse-trusted"
   business   = "lakehouse-business"
 }
- 
+
+databases = {
+  landing = "db_landing"
+  raw = "db_raw"
+  trusted = "db_trusted"
+  business = "db_business"
+}
+
+tables = {
+  tb_opensky_flights = "opensky_flights"
+}
+
 ###########################################
 # AWS Secrets Manager Configuration
-secrets_recovery_window_days = 0
-secrets_log_retention_days   = 7
+# secrets_recovery_window_days = 0
+# secrets_log_retention_days   = 7
 
 ############################################
 # Lambda Functions Configuration

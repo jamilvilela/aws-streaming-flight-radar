@@ -46,3 +46,13 @@ variable "buckets" {
   description = "Map of S3 bucket names for different purposes"
   type        = map(string)
 }
+
+variable "databases" {
+  description = "Map of Glue database names for different purposes"
+  type        = map(string)
+}
+
+variable "tables" {
+  description = "Map of Glue table names for different purposes"
+  type        = map(string)
+}
