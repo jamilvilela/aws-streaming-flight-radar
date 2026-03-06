@@ -1,5 +1,3 @@
-# control_account = "331504768406"
-
 aws_region   = "us-east-1"
 project_name = "flight-radar-stream"
 environment  = "production"
@@ -39,7 +37,6 @@ lambda_functions = {
     timeout           = 60
     memory_size       = 512
     ephemeral_storage = 512
-    # kinesis_stream    = "flight-radar-stream-flights-raw"
     tags = {
       Type   = "raw-ingest"
       Source = "opensky-api"
@@ -52,7 +49,6 @@ lambda_functions = {
     timeout           = 60
     memory_size       = 512
     ephemeral_storage = 512
-    # kinesis_stream    = "flight-radar-stream-flights-enriched"
     tags = {
       Type   = "enriched-ingest"
       Source = "opensky-api"
