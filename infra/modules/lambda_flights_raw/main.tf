@@ -1,4 +1,4 @@
-resource "aws_lambda_function" "this" {
+resource "aws_lambda_function" "lambda_flights_raw" {
   function_name    = "${var.project_name}-${var.lambda_config.name}"
   role             = var.role_arn
   handler          = "lambda_function.lambda_handler"
@@ -22,6 +22,6 @@ resource "aws_lambda_function" "this" {
 }
 
 resource "aws_cloudwatch_log_group" "this" {
-  name              = "/aws/lambda/${aws_lambda_function.this.function_name}"
+  name              = "/aws/lambda/${aws_lambda_function.lambda_flights_raw.function_name}"
   retention_in_days = 7
 }

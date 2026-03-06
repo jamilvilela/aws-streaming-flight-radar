@@ -1,5 +1,3 @@
-# control_account = "331504768406"
-
 aws_region   = "us-east-1"
 project_name = "flight-radar-stream"
 environment  = "production"
@@ -12,11 +10,22 @@ buckets = {
   trusted   = "lakehouse-trusted"
   business   = "lakehouse-business"
 }
- 
+
+databases = {
+  landing = "db_landing"
+  raw = "db_raw"
+  trusted = "db_trusted"
+  business = "db_business"
+}
+
+tables = {
+  tb_opensky_flights = "opensky_flights"
+}
+
 ###########################################
 # AWS Secrets Manager Configuration
-secrets_recovery_window_days = 0
-secrets_log_retention_days   = 7
+# secrets_recovery_window_days = 0
+# secrets_log_retention_days   = 7
 
 ############################################
 # Lambda Functions Configuration
@@ -28,7 +37,6 @@ lambda_functions = {
     timeout           = 60
     memory_size       = 512
     ephemeral_storage = 512
-    # kinesis_stream    = "flight-radar-stream-flights-raw"
     tags = {
       Type   = "raw-ingest"
       Source = "opensky-api"
@@ -41,7 +49,6 @@ lambda_functions = {
     timeout           = 60
     memory_size       = 512
     ephemeral_storage = 512
-    # kinesis_stream    = "flight-radar-stream-flights-enriched"
     tags = {
       Type   = "enriched-ingest"
       Source = "opensky-api"
