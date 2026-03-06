@@ -8,11 +8,6 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose_flights_enrich
   }
 
   extended_s3_configuration {
-    buffering_hints {
-      interval_in_seconds = 300
-      size_in_mbs         = 5
-    }
-    
     role_arn            = var.role_arn
     bucket_arn          = var.bucket_arn
     prefix              = "opensky/enriched-flights/"
@@ -31,35 +26,6 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose_flights_enrich
       role_arn   = var.role_arn
       bucket_arn = var.bucket_arn
       prefix     = "opensky/enriched-flights-backup/"
-    }
-
-    # Compression Parquet Snappy
-    data_format_conversion_configuration {
-      input_format_configuration {
-        deserializer {
-          open_x_json_ser_de {}
-        }
-      }
-
-      output_format_configuration {
-        serializer {
-          parquet_ser_de {
-            compression = "SNAPPY"
-          }
-        }
-      }
-
-      schema_configuration {
-        role_arn      = var.role_arn
-        catalog_id    = data.aws_caller_identity.current.account_id
-        database_name = var.databases.landing
-        table_name    = var.tables.tb_opensky_flights
-      }
-    }
-
-    dynamic_partitioning_configuration {
-      enabled = true
-      retry_duration = 300
     }
 
     processing_configuration {
