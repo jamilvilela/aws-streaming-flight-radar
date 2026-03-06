@@ -6,12 +6,27 @@ resource "aws_kinesis_firehose_delivery_stream" "kinesis_firehose_flights_enrich
     kinesis_stream_arn = var.kinesis_stream_arn
     role_arn           = var.role_arn
   }
-  
+
   extended_s3_configuration {
     role_arn            = var.role_arn
     bucket_arn          = var.bucket_arn
     prefix              = "opensky/enriched-flights/"
     error_output_prefix = "opensky/enriched-flights-errors/"
+    kms_key_arn         = var.kms_firehose_arn
+
+    # Backup settings
+    cloudwatch_logging_options {
+      enabled         = true
+      log_group_name  = "/aws/kinesisfirehose/${var.kinesis_firehose.name}"
+      log_stream_name = "S3Backup"
+    }
+
+    s3_backup_mode = "Enabled"
+    s3_backup_configuration {
+      role_arn   = var.role_arn
+      bucket_arn = var.bucket_arn
+      prefix     = "opensky/enriched-flights-backup/"
+    }
 
     processing_configuration {
       enabled = true
