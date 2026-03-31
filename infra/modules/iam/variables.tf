@@ -18,7 +18,7 @@ variable "bucket_arn" {
   description = "ARN do bucket S3 destino do Firehose"
 }
 
-# variable "lambda_arn" {
+# variable "opensearch_domain_name" {
 #   type        = string
-#   description = "ARN da Lambda usada como transform processor no Firehose"
+#   description = "Nome do domínio do OpenSearch"
 # }
