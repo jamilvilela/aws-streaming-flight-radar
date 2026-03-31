@@ -14,7 +14,7 @@ resource "aws_lambda_function" "lambda_flights_enriched" {
   tags = var.tags
 }
 
-resource "aws_cloudwatch_log_group" "this" {
+resource "aws_cloudwatch_log_group" "log_group_flights_enriched" {
   name              = "/aws/lambda/${aws_lambda_function.lambda_flights_enriched.function_name}"
   retention_in_days = 7
 }

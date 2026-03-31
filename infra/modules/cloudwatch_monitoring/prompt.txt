@@ -1,0 +1,1119 @@
+alterar o modulo cloudwatch do projeto nos itens que sao relacionados ao opensearch, que antes era provisionado e agora é serverless.
+
+variable "project_name" {
+  description = "Nome do projeto para prefixar recursos"
+  type        = string
+}
+
+variable "aws_region" {
+  description = "Região AWS para os recursos"
+  type        = string  
+}
+
+variable "environment" {
+  description = "Ambiente (dev, staging, prod)"
+  type        = string
+}
+
+variable "tags" {
+  description = "Tags para recursos"
+  type        = map(string)
+  default     = {}
+}
+
+# Kinesis Stream
+variable "kinesis_stream_name" {
+  description = "Nome do Kinesis Stream"
+  type        = string
+}
+
+variable "kinesis_stream_arn" {
+  description = "ARN do Kinesis Stream"
+  type        = string
+}
+
+# Kinesis Firehose - S3
+variable "firehose_s3_name" {
+  description = "Nome do Firehose com destino S3"
+  type        = string
+  default     = ""
+}
+
+variable "firehose_s3_arn" {
+  description = "ARN do Firehose com destino S3"
+  type        = string
+  default     = ""
+}
+
+# Kinesis Firehose - OpenSearch
+variable "firehose_opensearch_name" {
+  description = "Nome do Firehose com destino OpenSearch"
+  type        = string
+  default     = ""
+}
+
+variable "firehose_opensearch_arn" {
+  description = "ARN do Firehose com destino OpenSearch"
+  type        = string
+  default     = ""
+}
+
+# Lambda Functions
+variable "lambda_functions" {
+  description = "Lista de funções Lambda para monitorar"
+  type = list(object({
+    name = string
+    arn  = string
+  }))
+  default = []
+}
+
+# OpenSearch Domain
+variable "opensearch_domain_name" {
+  description = "Nome do domínio OpenSearch"
+  type        = string
+  default     = ""
+}
+
+variable "opensearch_domain_arn" {
+  description = "ARN do domínio OpenSearch"
+  type        = string
+  default     = ""
+}
+
+# Adicione variável para tipo de OpenSearch
+variable "opensearch_type" {
+  description = "Tipo: 'cluster' ou 'serverless'"
+  type        = string
+  default     = "serverless"
+}
+
+variable "opensearch_collection_name" {
+  description = "Nome da collection (para serverless)"
+  type        = string
+  default     = ""
+}
+
+# S3 Bucket
+variable "s3_bucket_name" {
+  description = "Nome do bucket S3 de destino"
+  type        = string
+  default     = ""
+}
+
+# Thresholds configuráveis
+variable "alarm_thresholds" {
+  description = "Thresholds personalizáveis para alarmes"
+  type = object({
+    kinesis_iterator_age_ms          = number
+    kinesis_no_records_minutes       = number
+    kinesis_write_throttle_percent   = number
+    kinesis_read_throttle_percent    = number
+    firehose_delivery_failure_percent = number
+    firehose_incoming_records_low    = number
+    lambda_error_percent             = number
+    lambda_duration_p95_ms           = number
+    lambda_throttle_count            = number
+    opensearch_cpu_percent           = number
+    opensearch_jvm_memory_percent    = number
+    opensearch_indexing_failures     = number
+  })
+  default = {
+    kinesis_iterator_age_ms          = 60000    # 60 segundos
+    kinesis_no_records_minutes       = 10
+    kinesis_write_throttle_percent   = 5
+    kinesis_read_throttle_percent    = 5
+    firehose_delivery_failure_percent = 10
+    firehose_incoming_records_low    = 1
+    lambda_error_percent             = 5
+    lambda_duration_p95_ms           = 5000
+    lambda_throttle_count            = 10
+    opensearch_cpu_percent           = 80
+    opensearch_jvm_memory_percent    = 85
+    opensearch_indexing_failures     = 5
+  }
+}
+
+variable "alarm_evaluation_periods" {
+  description = "Períodos de avaliação para alarmes"
+  type        = number
+  default     = 2
+}
+
+variable "alarm_period_seconds" {
+  description = "Período em segundos para avaliação de métricas"
+  type        = number
+  default     = 300  # 5 minutos
+}
+
+variable "sns_alarm_topic_arn" {
+  description = "ARN do tópico SNS para notificações de alarme"
+  type        = string
+  default     = ""
+}
+
+variable "alerts_email" {
+  description = "Email para receber notificações de alarme"
+  type        = string
+  default     = ""  
+}
+
+locals {
+  # Prefixo comum para nomes de recursos
+  name_prefix = "${var.project_name}-${var.environment}"
+  
+  # Dimensões comuns
+  kinesis_dimensions = {
+    StreamName = var.kinesis_stream_name
+  }
+  
+  firehose_s3_dimensions = var.firehose_s3_name != "" ? {
+    DeliveryStreamName = var.firehose_s3_name
+  } : {}
+  
+  firehose_opensearch_dimensions = var.firehose_opensearch_name != "" ? {
+    DeliveryStreamName = var.firehose_opensearch_name
+  } : {}
+  
+  # Cores para widgets do dashboard
+  colors = {
+    success = "#2ca02c"
+    warning = "#ff7f0e"
+    error   = "#d62728"
+    info    = "#1f77b4"
+  }
+  
+  # Períodos padrão para métricas
+  periods = {
+    real_time  = 60    # 1 minuto
+    short      = 300   # 5 minutos
+    medium     = 900   # 15 minutos
+    long       = 3600  # 1 hora
+  }
+
+  dashboard_widgets = flatten([
+    [{
+      type   = "text"
+      x      = 0
+      y      = 0
+      width  = 24
+      height = 1
+      properties = {
+        markdown = "# 🚀 ${upper(var.project_name)} - Pipeline\n**Ambiente:** ${upper(var.environment)}"
+      }
+    }],
+    
+    # =================================================================
+    # KINESIS WIDGETS - Condicional via for + if
+    # =================================================================
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = 1
+      width  = 12
+      height = 6
+      properties = {
+        title  = "📥 Registros Entrando"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [["AWS/Kinesis", "IncomingRecords", "StreamName", var.kinesis_stream_name, { label = "Count", color = local.colors.info }]]
+        view = "timeSeries"
+        # ✅ Estrutura uniforme: sempre inclui yAxis e annotations (mesmo que vazios)
+        yAxis = { left = { min = 0, label = "Reg/min" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.kinesis_stream_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 12
+      y      = 1
+      width  = 12
+      height = 6
+      properties = {
+        title  = "⏱️ Iterator Age"
+        period = local.periods.short
+        stat   = "Maximum"
+        region = var.aws_region
+        metrics = [["AWS/Kinesis", "GetRecords.IteratorAgeMilliseconds", "StreamName", var.kinesis_stream_name, { label = "ms", color = local.colors.error }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, label = "ms" } }
+        # ✅ annotations sempre presente para uniformidade de tipo
+        annotations = { 
+          horizontal = [{ label = "Threshold", value = var.alarm_thresholds.kinesis_iterator_age_ms, color = local.colors.error }] 
+        }
+      }
+    } if var.kinesis_stream_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = 7
+      width  = 12
+      height = 6
+      properties = {
+        title  = "📊 Throughput"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [
+          ["AWS/Kinesis", "IncomingBytes", "StreamName", var.kinesis_stream_name, { label = "In", color = local.colors.info }],
+          ["AWS/Kinesis", "OutgoingBytes", "StreamName", var.kinesis_stream_name, { label = "Out", color = local.colors.success }]
+        ]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, label = "Bytes" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.kinesis_stream_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 12
+      y      = 7
+      width  = 12
+      height = 6
+      properties = {
+        title  = "⚠️ Throttling"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [
+          ["AWS/Kinesis", "WriteProvisionedThroughputExceeded", "StreamName", var.kinesis_stream_name, { label = "Write", color = local.colors.error }],
+          ["AWS/Kinesis", "ReadProvisionedThroughputExceeded", "StreamName", var.kinesis_stream_name, { label = "Read", color = local.colors.warning }]
+        ]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, label = "Count" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.kinesis_stream_name != ""],
+    
+    # =================================================================
+    # FIREHOSE S3 WIDGETS
+    # =================================================================
+    [for i in [0] : {
+      type   = "text"
+      x      = 0
+      y      = var.kinesis_stream_name != "" ? 13 : 1
+      width  = 24
+      height = 1
+      properties = { markdown = "## 🪣 Firehose → S3" }
+    } if var.firehose_s3_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = (var.kinesis_stream_name != "" ? 13 : 1) + 1
+      width  = 8
+      height = 6
+      properties = {
+        title  = "✅ Sucesso"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [["AWS/Firehose", "DeliveryToS3.Success", "DeliveryStreamName", var.firehose_s3_name, { label = "OK", color = local.colors.success }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_s3_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 8
+      y      = (var.kinesis_stream_name != "" ? 13 : 1) + 1
+      width  = 8
+      height = 6
+      properties = {
+        title  = "❌ Falhas"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [["AWS/Firehose", "DeliveryToS3.Failed", "DeliveryStreamName", var.firehose_s3_name, { label = "Fail", color = local.colors.error }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_s3_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 16
+      y      = (var.kinesis_stream_name != "" ? 13 : 1) + 1
+      width  = 8
+      height = 6
+      properties = {
+        title  = "📈 Taxa %"
+        period = local.periods.short
+        stat   = "Average"
+        region = var.aws_region
+        metrics = [["AWS/Firehose", "DeliveryToS3.Success", "DeliveryStreamName", var.firehose_s3_name, { label = "%", color = local.colors.info }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, max = 100, label = "%" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_s3_name != ""],
+    
+    # =================================================================
+    # FIREHOSE OPENSEARCH WIDGETS
+    # =================================================================
+    [for i in [0] : {
+      type   = "text"
+      x      = 0
+      y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0)
+      width  = 24
+      height = 1
+      properties = { markdown = "## 🔍 Firehose → OpenSearch" }
+    } if var.firehose_opensearch_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "✅ Index"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [["AWS/Firehose", "DeliveryToOpenSearch.Success", "DeliveryStreamName", var.firehose_opensearch_name, { label = "OK", color = local.colors.success }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_opensearch_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 8
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "❌ Falhas"
+        period = local.periods.short
+        stat   = "Sum"
+        region = var.aws_region
+        metrics = [
+          ["AWS/Firehose", "DeliveryToOpenSearch.Failed", "DeliveryStreamName", var.firehose_opensearch_name, { label = "Fail", color = local.colors.error }],
+          ["AWS/Firehose", "Documents.Dropped", "DeliveryStreamName", var.firehose_opensearch_name, { label = "Drop", color = local.colors.warning }]
+        ]
+        view = "timeSeries"
+        yAxis = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_opensearch_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 16
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "⏱️ Latência"
+        period = local.periods.short
+        stat   = "Average"
+        region = var.aws_region
+        metrics = [["AWS/Firehose", "DeliveryToOpenSearch.SuccessLatency", "DeliveryStreamName", var.firehose_opensearch_name, { label = "ms", color = local.colors.info }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, label = "ms" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.firehose_opensearch_name != ""],
+    
+    # =================================================================
+    # LAMBDA WIDGETS (iteração sobre lista)
+    # =================================================================
+    flatten([
+      for idx, f in var.lambda_functions : [
+        {
+          type   = "text"
+          x      = 0
+          y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6)
+          width  = 24
+          height = 1
+          properties = { markdown = "### ⚡ ${f.name}" }
+        },
+        {
+          type   = "metric"
+          x      = 0
+          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
+          width  = 8
+          height = 6
+          properties = {
+            title  = "📊 Invocações"
+            period = local.periods.short
+            stat   = "Sum"
+            region = var.aws_region
+            metrics = [["AWS/Lambda", "Invocations", "FunctionName", f.name, { label = "Count", color = local.colors.info }]]
+            view = "timeSeries"
+            yAxis = { left = { min = 0 } }
+            annotations = { horizontal = [] }
+          }
+        },
+        {
+          type   = "metric"
+          x      = 8
+          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
+          width  = 8
+          height = 6
+          properties = {
+            title  = "❌ Erros"
+            period = local.periods.short
+            stat   = "Sum"
+            region = var.aws_region
+            metrics = [["AWS/Lambda", "Errors", "FunctionName", f.name, { label = "Err", color = local.colors.error }]]
+            view = "timeSeries"
+            yAxis = { left = { min = 0 } }
+            annotations = { horizontal = [] }
+          }
+        },
+        {
+          type   = "metric"
+          x      = 16
+          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
+          width  = 8
+          height = 6
+          properties = {
+            title  = "⏱️ Duração Max"
+            period = local.periods.short
+            stat   = "Maximum"  # ✅ Dashboard suporta percentis, mas usamos Maximum para consistência
+            region = var.aws_region
+            metrics = [["AWS/Lambda", "Duration", "FunctionName", f.name, { label = "Max ms", color = local.colors.warning }]]
+            view = "timeSeries"
+            yAxis = { left = { min = 0, label = "ms" } }
+            annotations = { horizontal = [] }
+          }
+        }
+      ] if length(var.lambda_functions) > 0
+    ]),
+    
+    # =================================================================
+    # OPENSEARCH WIDGETS
+    # =================================================================
+    [for i in [0] : {
+      type   = "text"
+      x      = 0
+      y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
+      width  = 24
+      height = 1
+      properties = { markdown = "## 🗄️ OpenSearch" }
+    } if var.opensearch_domain_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "💻 CPU %"
+        period = local.periods.short
+        stat   = "Average"
+        region = var.aws_region
+        metrics = [["AWS/ES", "CPUUtilization", "DomainName", var.opensearch_domain_name, "ClientId", "all", { label = "CPU", color = local.colors.info }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, max = 100, label = "%" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.opensearch_domain_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 8
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "🧠 JVM %"
+        period = local.periods.short
+        stat   = "Average"
+        region = var.aws_region
+        metrics = [["AWS/ES", "JVMMemoryPressure", "DomainName", var.opensearch_domain_name, "ClientId", "all", { label = "JVM", color = local.colors.warning }]]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, max = 100, label = "%" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.opensearch_domain_name != ""],
+    
+    [for i in [0] : {
+      type   = "metric"
+      x      = 16
+      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
+      width  = 8
+      height = 6
+      properties = {
+        title  = "📈 Index/Search"
+        period = local.periods.short
+        stat   = "Average"
+        region = var.aws_region
+        metrics = [
+          ["AWS/ES", "IndexingRate", "DomainName", var.opensearch_domain_name, "ClientId", "all", { label = "Idx/s", color = local.colors.success }],
+          ["AWS/ES", "SearchRate", "DomainName", var.opensearch_domain_name, "ClientId", "all", { label = "Src/s", color = local.colors.info }]
+        ]
+        view = "timeSeries"
+        yAxis = { left = { min = 0, label = "Ops/s" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.opensearch_domain_name != ""]
+  ])
+}
+
+# =============================================================================
+# ALARMES - KINESIS STREAM
+# =============================================================================
+
+# Iterator Age - indica backlog no processamento
+resource "aws_cloudwatch_metric_alarm" "kinesis_iterator_age" {
+  alarm_name          = "${local.name_prefix}-kinesis-high-iterator-age"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "GetRecords.IteratorAgeMilliseconds"
+  namespace           = "AWS/Kinesis"
+  period              = var.alarm_period_seconds
+  statistic           = "Maximum"
+  threshold           = var.alarm_thresholds.kinesis_iterator_age_ms
+  alarm_description   = "Alerta: Registros não processados por mais de ${var.alarm_thresholds.kinesis_iterator_age_ms/1000}s no stream"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.kinesis_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "KinesisIteratorAge"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# Sem registros entrando - possível interrupção no produtor
+resource "aws_cloudwatch_metric_alarm" "kinesis_no_incoming_records" {
+  alarm_name          = "${local.name_prefix}-kinesis-no-incoming-records"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "IncomingRecords"
+  namespace           = "AWS/Kinesis"
+  period              = 600  # 10 minutos para esta métrica
+  statistic           = "Sum"
+  threshold           = var.alarm_thresholds.kinesis_no_records_minutes
+  alarm_description   = "Alerta: Nenhum registro recebido no stream por 10+ minutos"
+  treat_missing_data  = "breaching"
+  
+  dimensions = local.kinesis_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "KinesisNoRecords"
+    Severity  = "Medium"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# Throttling de escrita - capacidade do stream atingida
+resource "aws_cloudwatch_metric_alarm" "kinesis_write_throttled" {
+  alarm_name          = "${local.name_prefix}-kinesis-write-throttled"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "WriteProvisionedThroughputExceeded"
+  namespace           = "AWS/Kinesis"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Throttling de escrita detectado no stream"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.kinesis_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "KinesisWriteThrottle"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# Throttling de leitura - consumidores não acompanhando
+resource "aws_cloudwatch_metric_alarm" "kinesis_read_throttled" {
+  alarm_name          = "${local.name_prefix}-kinesis-read-throttled"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "ReadProvisionedThroughputExceeded"
+  namespace           = "AWS/Kinesis"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Throttling de leitura detectado no stream"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.kinesis_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "KinesisReadThrottle"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# =============================================================================
+# ALARMES - KINESIS FIREHOSE (S3)
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "firehose_s3_delivery_failures" {
+  count = var.firehose_s3_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-s3-delivery-failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "DeliveryToS3.Failed"
+  namespace           = "AWS/Firehose"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Falhas na entrega de registros para S3"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.firehose_s3_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseS3Failures"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "firehose_s3_success_rate" {
+  count = var.firehose_s3_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-s3-low-success-rate"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "DeliveryToS3.Success"
+  namespace           = "AWS/Firehose"
+  period              = var.alarm_period_seconds
+  statistic           = "Average"
+  threshold           = 100 - var.alarm_thresholds.firehose_delivery_failure_percent
+  alarm_description   = "Alerta: Taxa de sucesso na entrega para S3 abaixo de ${100 - var.alarm_thresholds.firehose_delivery_failure_percent}%"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.firehose_s3_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseS3SuccessRate"
+    Severity  = "Medium"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+ 
+resource "aws_cloudwatch_metric_alarm" "firehose_s3_incoming_records_low" {
+  count = var.firehose_s3_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-s3-no-incoming"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "IncomingRecords"
+  namespace           = "AWS/Firehose"
+  period              = 600
+  statistic           = "Sum"
+  threshold           = var.alarm_thresholds.firehose_incoming_records_low
+  alarm_description   = "Alerta: Baixo volume de registros entrando no Firehose S3"
+  treat_missing_data  = "breaching"
+  
+  dimensions = local.firehose_s3_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseS3NoIncoming"
+    Severity  = "Medium"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# =============================================================================
+# ALARMES - KINESIS FIREHOSE (OPENSEARCH)
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "firehose_os_delivery_failures" {
+  count = var.firehose_opensearch_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-opensearch-delivery-failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "DeliveryToOpenSearch.Failed"
+  namespace           = "AWS/Firehose"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Falhas na entrega de registros para OpenSearch"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.firehose_opensearch_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseOSFailures"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "firehose_os_success_rate" {
+  count = var.firehose_opensearch_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-opensearch-low-success-rate"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "DeliveryToOpenSearch.Success"
+  namespace           = "AWS/Firehose"
+  period              = var.alarm_period_seconds
+  statistic           = "Average"
+  threshold           = 100 - var.alarm_thresholds.firehose_delivery_failure_percent
+  alarm_description   = "Alerta: Taxa de sucesso na entrega para OpenSearch abaixo de ${100 - var.alarm_thresholds.firehose_delivery_failure_percent}%"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.firehose_opensearch_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseOSSuccessRate"
+    Severity  = "Medium"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "firehose_os_documents_dropped" {
+  count = var.firehose_opensearch_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-firehose-opensearch-documents-dropped"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "Documents.Dropped"
+  namespace           = "AWS/Firehose"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Documentos sendo descartados pelo Firehose OpenSearch"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = local.firehose_opensearch_dimensions
+  
+  tags = merge(var.tags, {
+    AlarmType = "FirehoseOSDocumentsDropped"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# =============================================================================
+# ALARMES - LAMBDA FUNCTIONS
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
+  for_each = { for f in var.lambda_functions : f.name => f }
+  
+  alarm_name          = "${local.name_prefix}-lambda-${each.key}-errors"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "Errors"
+  namespace           = "AWS/Lambda"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 0
+  alarm_description   = "Alerta: Erros detectados na função Lambda ${each.key}"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    FunctionName = each.key
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType   = "LambdaErrors"
+    Severity    = "High"
+    LambdaName  = each.key
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "lambda_throttles" {
+  for_each = { for f in var.lambda_functions : f.name => f }
+  
+  alarm_name          = "${local.name_prefix}-lambda-${each.key}-throttles"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "Throttles"
+  namespace           = "AWS/Lambda"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = var.alarm_thresholds.lambda_throttle_count
+  alarm_description   = "Alerta: Throttling detectado na função Lambda ${each.key}"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    FunctionName = each.key
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType   = "LambdaThrottles"
+    Severity    = "Medium"
+    LambdaName  = each.key
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# modules/cloudwatch_monitoring/main.tf - Linha ~316
+
+resource "aws_cloudwatch_metric_alarm" "lambda_duration_p95" {
+  for_each = { for f in var.lambda_functions : f.name => f }
+  
+  alarm_name          = "${local.name_prefix}-lambda-${each.key}-high-duration"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "Duration"
+  namespace           = "AWS/Lambda"
+  period              = var.alarm_period_seconds
+  statistic           = "Maximum"
+  
+  threshold           = var.alarm_thresholds.lambda_duration_p95_ms
+  alarm_description   = "Alerta: Duração máxima acima de ${var.alarm_thresholds.lambda_duration_p95_ms}ms na Lambda ${each.key}"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    FunctionName = each.key
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType   = "LambdaDuration"
+    Severity    = "Medium"
+    LambdaName  = each.key
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# =============================================================================
+# ALARMES - OPENSEARCH DOMAIN
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_cpu_utilization" {
+  count = var.opensearch_domain_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-opensearch-high-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/ES"
+  period              = var.alarm_period_seconds
+  statistic           = "Average"
+  threshold           = var.alarm_thresholds.opensearch_cpu_percent
+  alarm_description   = "Alerta: CPU do OpenSearch acima de ${var.alarm_thresholds.opensearch_cpu_percent}%"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    DomainName = var.opensearch_domain_name
+    ClientId   = "all"
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType = "OpenSearchCPU"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_jvm_memory" {
+  count = var.opensearch_domain_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-opensearch-high-jvm-memory"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "JVMMemoryPressure"
+  namespace           = "AWS/ES"
+  period              = var.alarm_period_seconds
+  statistic           = "Average"
+  threshold           = var.alarm_thresholds.opensearch_jvm_memory_percent
+  alarm_description   = "Alerta: Pressão de memória JVM no OpenSearch acima de ${var.alarm_thresholds.opensearch_jvm_memory_percent}%"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    DomainName = var.opensearch_domain_name
+    ClientId   = "all"
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType = "OpenSearchJVM"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_indexing_failures" {
+  count = var.opensearch_domain_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-opensearch-indexing-failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "IndexingFailures"
+  namespace           = "AWS/ES"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = var.alarm_thresholds.opensearch_indexing_failures
+  alarm_description   = "Alerta: Falhas de indexação no OpenSearch"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    DomainName = var.opensearch_domain_name
+    ClientId   = "all"
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType = "OpenSearchIndexing"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+# =============================================================================
+# ALARMES - OPENSEARCH SERVERLESS (AWS/AOSS)
+# =============================================================================
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_ocu_utilization" {
+  count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-opensearch-serverless-high-ocu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "SearchOCUUtilization"  # ou "IndexingOCUUtilization"
+  namespace           = "AWS/AOSS"  # ✅ Serverless usa AWS/AOSS
+  period              = var.alarm_period_seconds
+  statistic           = "Average"
+  threshold           = 80
+  alarm_description   = "Alerta: Utilização de OCU do OpenSearch Serverless acima de 80%"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    CollectionName = var.opensearch_collection_name
+    MetricType     = "SEARCH"  # ou "INDEXING"
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType = "OpenSearchServerlessOCU"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+
+resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_indexing_failures" {
+  count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
+  
+  alarm_name          = "${local.name_prefix}-opensearch-serverless-indexing-failures"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = var.alarm_evaluation_periods
+  metric_name         = "IndexingFailures"
+  namespace           = "AWS/AOSS"
+  period              = var.alarm_period_seconds
+  statistic           = "Sum"
+  threshold           = 5
+  alarm_description   = "Alerta: Falhas de indexação no OpenSearch Serverless"
+  treat_missing_data  = "notBreaching"
+  
+  dimensions = {
+    CollectionName = var.opensearch_collection_name
+  }
+  
+  tags = merge(var.tags, {
+    AlarmType = "OpenSearchServerlessIndexing"
+    Severity  = "High"
+  })
+  
+  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+}
+# =============================================================================
+# COMPOSITE ALARMS - Visão Holística do Pipeline
+# =============================================================================
+resource "aws_cloudwatch_composite_alarm" "pipeline_critical" {
+  alarm_name        = "${local.name_prefix}-pipeline-critical"
+  alarm_description = "Alarme composto: Qualquer falha crítica no pipeline de streaming"
+  
+  # Regra: OR entre alarmes críticos que existem
+  alarm_rule = join(" OR ", compact([
+    var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_iterator_age.alarm_name}\")" : null,
+    var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_write_throttled.alarm_name}\")" : null,
+    var.firehose_s3_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_s3_delivery_failures[0].alarm_name}\")" : null,
+    var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_delivery_failures[0].alarm_name}\")" : null,
+  ]))
+  
+  tags = merge(var.tags, {
+    AlarmType = "CompositeCritical"
+    Severity  = "Critical"
+  })
+  
+  # Supressão durante janela de manutenção (opcional)
+  actions_suppressor {
+    alarm          = "${local.name_prefix}-maintenance-window"
+    wait_period    = 300
+    extension_period = 600
+  }
+}
+
+# Alarme de degradação: performance abaixo do esperado
+resource "aws_cloudwatch_composite_alarm" "pipeline_degraded" {
+  alarm_name        = "${local.name_prefix}-pipeline-degraded"
+  alarm_description = "Alarme composto: Pipeline operando com degradação"
+  
+  # Regra: OR entre alarmes de warning
+  alarm_rule = join(" OR ", compact([
+    var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_read_throttled.alarm_name}\")" : null,
+    var.firehose_s3_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_s3_success_rate[0].alarm_name}\")" : null,
+    var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_success_rate[0].alarm_name}\")" : null,
+    # ✅ CORREÇÃO: lambda_functions é list, não map
+    length(var.lambda_functions) > 0 ? "ALARM(\"${aws_cloudwatch_metric_alarm.lambda_errors[var.lambda_functions[0].name].alarm_name}\")" : null,
+  ]))
+  
+  tags = merge(var.tags, {
+    AlarmType = "CompositeDegraded"
+    Severity  = "Warning"
+  })
+}
+
+# =============================================================================
+# CLOUDWATCH DASHBOARD - Unificação de Métricas
+# =============================================================================
+resource "aws_cloudwatch_dashboard" "streaming_pipeline" {
+  dashboard_name = "${local.name_prefix}-streaming-pipeline"
+  
+  dashboard_body = jsonencode({
+    widgets = local.dashboard_widgets
+  })  
+}
+
+# Tópico SNS para alarmes (se não existir)
+resource "aws_sns_topic" "pipeline_alarms" {
+  name = "${var.project_name}-${var.environment}-pipeline-alarms"
+  
+  tags = merge(var.tags, {
+    Purpose = "CloudWatch Alarms"
+  })
+}
+
+# Subscription para email
+resource "aws_sns_topic_subscription" "alerts_email" {
+  topic_arn = aws_sns_topic.pipeline_alarms.arn
+  protocol  = "email"
+  endpoint  = var.alerts_email  
+}
+
+output "aws_sns_topic_pipeline_alarms_arn" {
+  value = aws_sns_topic.pipeline_alarms.arn
+  description = "ARN do tópico SNS para alarmes do pipeline de streaming"  
+}

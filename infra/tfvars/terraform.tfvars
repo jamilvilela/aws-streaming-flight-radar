@@ -2,6 +2,7 @@ aws_region   = "us-east-1"
 project_name = "flight-radar-stream"
 environment  = "production"
 datalake_role_name = "role-datalake-analytics"
+alerts_email = ["jamilvilela@gmail.com"]
 
 buckets = {
   workspace = "lakehouse-workspace"
@@ -65,13 +66,25 @@ kinesis_streams = {
   }
 }
 
-kinesis_firehose = {
-  flights_enriched = {
-    name = "flight-radar-firehose-flights-enriched"
-    prefix             = "opensky/enriched-flights/"
-    error_output_prefix = "opensky/enriched-flights-errors/"
+opensearch = {
+  flights = {
+    collection_name = "flight-radar-flights"
+    collection_type = "SEARCH"
+    standby_replicas = "ENABLED"
+    vpc_id = ""  # Deixa público, sem restrição de VPC
   }
 }
+
+
+kinesis_firehose = {
+  flights_enriched = {
+    name                = "flight-radar-firehose-flights-enriched"
+    prefix              = "opensky/enriched-flights/"
+    error_output_prefix = "opensky/enriched-flights-errors/"
+    opensearch_index_name  = "flights"
+  }
+}
+
 
 ################################################
 tags = {
@@ -79,3 +92,26 @@ tags = {
   Project     = "flight-radar-stream"
   ManagedBy   = "terraform"
 }
+
+
+# =============================================================================
+# CLOUDWATCH MONITORING
+# =============================================================================
+alarm_thresholds = {
+  kinesis_iterator_age_ms          = 60000    # 60 segundos
+  kinesis_no_records_minutes       = 10
+  kinesis_write_throttle_percent   = 5
+  kinesis_read_throttle_percent    = 5
+  firehose_delivery_failure_percent = 10
+  firehose_incoming_records_low    = 1
+  lambda_error_percent             = 5
+  lambda_duration_p95_ms           = 5000
+  lambda_throttle_count            = 10
+  opensearch_cpu_percent           = 80
+  opensearch_jvm_memory_percent    = 85
+  opensearch_indexing_failures     = 5
+}
+
+alarm_evaluation_periods = 2
+alarm_period_seconds     = 300
+

@@ -35,27 +35,42 @@ variable "role_arn" {
   type        = string
 }
 
-variable "lambda_arn" {
-  description = "ARN da função Lambda para processamento dos dados no Kinesis Firehose"
-  type        = string
-}
+# variable "lambda_arn" {
+#   description = "ARN da função Lambda para processamento dos dados no Kinesis Firehose"
+#   type        = string
+# }
 
 variable "kinesis_stream_arn" {
   description = "ARN do Kinesis Stream data source"
   type = string
 }
 
-variable "databases" {
-  type        = map(string)
-  description = "Mapa com os nomes dos Glue Databases já existentes no Glue Data Catalog"
-}
+# variable "databases" {
+#   type        = map(string)
+#   description = "Mapa com os nomes dos Glue Databases já existentes no Glue Data Catalog"
+# }
 
-variable "tables" {
-  type        = map(string)
-  description = "Mapa com os nomes das tabelas Glue a serem criadas para armazenar o schema dos dados"
-}
+# variable "tables" {
+#   type        = map(string)
+#   description = "Mapa com os nomes das tabelas Glue a serem criadas para armazenar o schema dos dados"
+# }
 
 variable "kms_firehose_arn" {
   description = "ARN da chave KMS para criptografia do Kinesis Firehose"
+  type        = string
+}
+
+# variable "opensearch_collection_arn" {
+#   description = "ARN da collection OpenSearch para onde o Firehose irá enviar os dados"
+#   type        = string  
+# }
+
+variable "opensearch_collection_endpoint" {
+  description = "Endpoint da collection OpenSearch para onde o Firehose irá enviar os dados"
+  type = string
+}
+
+variable "opensearch_index_name" {
+  description = "Nome do index no OpenSearch onde os dados serão armazenados"
   type        = string
 }

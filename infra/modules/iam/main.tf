@@ -29,3 +29,4 @@ resource "aws_iam_role_policy" "firehose_policy" {
   role   = aws_iam_role.firehose_role.id
   policy = data.aws_iam_policy_document.firehose_policy.json
 }
+

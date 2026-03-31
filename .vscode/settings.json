@@ -4,5 +4,9 @@
         "comments": true,
         "strings": true
     },
-    "editor.suggestOnTriggerCharacters": true
+    "editor.suggestOnTriggerCharacters": true,
+    "localaipilot.standalone.ollamaModel": "deepseek-r1:1.5b",
+    "localaipilot.standalone.ollamaCodeModel": "deepseek-r1:1.5b",
+    "CodeGPT.apiKey": "DeepSeek",
+    "localaipilot.general.inlineSuggestions": true
 }

@@ -24,7 +24,11 @@ data "aws_iam_policy_document" "lambda_kinesis_policy" {
 
 data "aws_iam_policy_document" "lambda_logs_policy" {
   statement {
-    actions   = ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    actions   = [
+      "logs:CreateLogGroup", 
+      "logs:CreateLogStream", 
+      "logs:PutLogEvents"
+    ]
     resources = ["arn:aws:logs:*:*:*"]
   }
 }
@@ -70,6 +74,18 @@ data "aws_iam_policy_document" "firehose_policy" {
       "kinesis:GetRecords",
       "kinesis:GetShardIterator",
       "kinesis:ListShards"
+    ]
+    resources = ["*"]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "aoss:APIAccessAll",
+      "aoss:CreateCollectionItems",
+      "aoss:DeleteCollectionItems",
+      "aoss:DescribeCollectionItems",
+      "aoss:UpdateCollectionItems"
     ]
     resources = ["*"]
   }
