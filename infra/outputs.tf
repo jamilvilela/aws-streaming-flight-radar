@@ -13,3 +13,9 @@ output "kinesis_firehose_to_opensearch_info" {
 output "iam_lambda_execution_role_arn" {
   value       = module.iam.lambda_execution_role_arn
 }
+output "opensearch_collection_endpoint" {
+  value = module.opensearch.collection_endpoint
+}
+output "opensearch_dashboard_endpoint" {
+  value = module.opensearch.dashboard_endpoint
+}

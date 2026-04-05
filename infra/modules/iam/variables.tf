@@ -22,3 +22,8 @@ variable "bucket_arn" {
 #   type        = string
 #   description = "Nome do domínio do OpenSearch"
 # }
+
+variable "dash_user_arns" {
+  type        = list(string)
+  description = "Lista de ARNs dos usuários com acesso ao OpenSearch Dashboards"
+}

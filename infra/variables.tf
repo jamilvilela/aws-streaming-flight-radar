@@ -85,7 +85,7 @@ variable "opensearch" {
   default = {
     flights = {
       collection_name    = "flight-radar-flights"
-      collection_type    = "SEARCH"
+      collection_type    = "TIMESERIES"
       standby_replicas   = "ENABLED"
       vpc_id             = ""
     }

@@ -14,6 +14,7 @@ resource "aws_kinesis_firehose_delivery_stream" "flights_to_opensearch" {
     
     buffering_interval = 60
     buffering_size     = 2
+    retry_duration     = 300
     
     s3_backup_mode = "FailedDocumentsOnly"    
     s3_configuration {
