@@ -69,9 +69,9 @@ kinesis_streams = {
 opensearch = {
   flights = {
     collection_name = "flight-radar-flights"
-    collection_type = "SEARCH"
+    collection_type = "TIMESERIES"
     standby_replicas = "ENABLED"
-    vpc_id = ""  # Deixa público, sem restrição de VPC
+    vpc_id = ""  # público 
   }
 }
 
@@ -81,7 +81,7 @@ kinesis_firehose = {
     name                = "flight-radar-firehose-flights-enriched"
     prefix              = "opensky/enriched-flights/"
     error_output_prefix = "opensky/enriched-flights-errors/"
-    opensearch_index_name  = "flights"
+    opensearch_index_name  = "flight-radar-flights"
   }
 }
 

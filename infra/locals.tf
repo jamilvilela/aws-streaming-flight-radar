@@ -9,4 +9,6 @@ locals {
             business  = "${var.buckets.business}-${data.aws_caller_identity.current.account_id}"
         }
     )
+
+    dash_user_arns = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/lake-admin"]
 }

@@ -176,3 +176,16 @@ variable "alerts_email" {
     error_message = "Todos os emails devem ser válidos."
   }
 }
+
+variable "dash_user_arns" {
+  description = "Lista de ARNs dos usuários IAM com acesso ao OpenSearch Dashboards"
+  type        = list(string)
+  default     = []
+  
+  validation {
+    condition = alltrue([
+      for arn in var.dash_user_arns : can(regex("^arn:aws:iam::[0-9]{12}:user/.+$", arn))
+    ])
+    error_message = "Todos os ARNs devem ser válidos e seguir o formato de usuário IAM."
+  }
+}

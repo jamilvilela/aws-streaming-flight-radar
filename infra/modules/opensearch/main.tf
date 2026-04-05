@@ -19,7 +19,7 @@ resource "aws_opensearchserverless_collection" "flights" {
 }
 
 # =============================================================================
-# ENCRYPTION POLICY (Obrigatório para Serverless)
+# ENCRYPTION POLICY 
 # =============================================================================
 
 resource "aws_opensearchserverless_security_policy" "encryption" {
@@ -36,7 +36,7 @@ resource "aws_opensearchserverless_security_policy" "encryption" {
 }
 
 # =============================================================================
-# NETWORK POLICY (Controla acesso de rede)
+# NETWORK POLICY 
 # =============================================================================
 
 resource "aws_opensearchserverless_security_policy" "network" {
@@ -65,12 +65,12 @@ resource "aws_opensearchserverless_security_policy" "network" {
 }
 
 # =============================================================================
-# DATA ACCESS POLICY (Define permissões de acesso a dados)
+# DATA ACCESS POLICY 
 # =============================================================================
 
 resource "aws_opensearchserverless_access_policy" "flights_access" {
   name = "${var.collection_name}-accs-policy"
-  type = "data"  # ✅ Apenas data access (não inclui dashboard)
+  type = "data"  # Apenas data access (não inclui dashboard)
 
   policy = jsonencode([
     # ================================================================
@@ -104,7 +104,8 @@ resource "aws_opensearchserverless_access_policy" "flights_access" {
             "aoss:DeleteIndex",
             "aoss:WriteDocument",
             "aoss:ReadDocument",
-            "aoss:DescribeIndex"
+            "aoss:DescribeIndex",
+            "aoss:UpdateIndex" 
           ]
         }
       ]
@@ -124,8 +125,8 @@ resource "aws_opensearchserverless_access_policy" "flights_access" {
           ]
         }
       ]
-      Principal = var.dash_user_arns
-      Description = "Admin collection access"
+      Principal   = var.dash_user_arns
+      Description = "Admin dashboard and index access"
     },
     # ================================================================
     # REGRA 4: Admin Users - Acesso aos Índices
@@ -156,7 +157,7 @@ resource "aws_opensearchserverless_access_policy" "flights_access" {
 }
 
 # =============================================================================
-# LIFECYCLE POLICY (Opcional - gerencia retenção de índices)
+# LIFECYCLE POLICY 
 # =============================================================================
 
 resource "aws_opensearchserverless_lifecycle_policy" "flights" {

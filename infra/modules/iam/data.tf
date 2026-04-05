@@ -85,8 +85,54 @@ data "aws_iam_policy_document" "firehose_policy" {
       "aoss:CreateCollectionItems",
       "aoss:DeleteCollectionItems",
       "aoss:DescribeCollectionItems",
-      "aoss:UpdateCollectionItems"
+      "aoss:UpdateCollectionItems",
+      "aoss:CreateIndex",
+      "aoss:DeleteIndex",
+      "aoss:WriteDocument",
+      "aoss:ReadDocument",
+      "aoss:UpdateIndex",
+      "aoss:DescribeIndex"
     ]
     resources = ["*"]
   }
+}
+
+data "aws_iam_policy_document" "opensearch_dashboard_access" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "aoss:DashboardsRead",
+      "aoss:DashboardsWrite",
+      "aoss:DashboardsDelete",
+      "aoss:DescribeCollectionItems",
+      "aoss:ReadDocument",
+      "aoss:WriteDocument"
+    ]
+    resources = ["*"]
+  }
+  
+  statement {
+    effect = "Allow"
+    actions = [
+      "aoss:ListCollections",
+      "aoss:GetCollection"
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_policy" "opensearch_dashboard_access" {
+  name        = "${var.project_name}-opensearch-dashboard-access"
+  description = "Acesso ao OpenSearch Dashboards para ${var.project_name}"
+  policy      = data.aws_iam_policy_document.opensearch_dashboard_access.json
+  
+  tags = var.tags
+}
+
+# Anexar a policy aos usuários
+resource "aws_iam_user_policy_attachment" "dashboard_access" {
+  for_each = toset(var.dash_user_arns)
+  
+  user       = split("/", each.value)[1]  # Extrai nome do usuário do ARN
+  policy_arn = aws_iam_policy.opensearch_dashboard_access.arn
 }

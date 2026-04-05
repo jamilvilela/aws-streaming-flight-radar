@@ -1,11 +1,3 @@
-module "iam" {
-  source       = "./modules/iam"
-  project_name = var.project_name
-  tags         = var.tags
-  bucket_arn = data.aws_s3_bucket.landing.arn
-  # opensearch_domain_name = var.opensearch.flights.domain_name
-}
-
 module "kms" {
   source       = "./modules/kms"
   project_name = var.project_name
@@ -58,35 +50,35 @@ module "opensearch" {
   source            = "./modules/opensearch"
   project_name      = var.project_name
   environment       = var.environment
+
   collection_name   = var.opensearch.flights.collection_name
   collection_type   = var.opensearch.flights.collection_type
   standby_replicas  = var.opensearch.flights.standby_replicas
-  firehose_role_arn = module.iam.firehose_role_arn
-  dash_user_arns    = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:user/lake-admin"]
   vpc_id            = var.opensearch.flights.vpc_id
-  tags              = var.tags
   
-  depends_on = [module.iam]
+  firehose_role_arn = module.iam.firehose_role_arn
+  dash_user_arns    = local.dash_user_arns
+
+  tags              = var.tags
 }
 
 module "kinesis_firehose_flights_enriched" {
   source                = "./modules/kinesis_firehose_flights_enriched"
   project_name          = var.project_name
-  kinesis_firehose      = var.kinesis_firehose.flights_enriched
+
   kinesis_stream_arn    = module.kinesis_stream_flights_raw.kinesis_stream_flight_raw_arn
+  kinesis_firehose      = var.kinesis_firehose.flights_enriched
   bucket_arn            = data.aws_s3_bucket.landing.arn
   role_arn              = module.iam.firehose_role_arn
+  kms_firehose_arn  = module.kms.kms_firehose_arn
   # lambda_arn       = module.lambda_flights_enriched.lambda_arn
+
   opensearch_collection_endpoint = module.opensearch.collection_endpoint
   opensearch_index_name          = var.kinesis_firehose.flights_enriched.opensearch_index_name
-  kms_firehose_arn  = module.kms.kms_firehose_arn
-  # databases        = var.databases
-  # tables           = var.tables
+
   environment       = var.environment
   tags              = var.tags
 }
-
-# main.tf ou modules.tf
 
 module "cloudwatch_monitoring" {
   source = "./modules/cloudwatch_monitoring"
@@ -116,7 +108,6 @@ module "cloudwatch_monitoring" {
     }
   ]
   
-  # ✅ OpenSearch Serverless (ATUALIZADO)
   opensearch_type            = "serverless"
   opensearch_collection_name = var.opensearch.flights.collection_name
   opensearch_collection_arn  = module.opensearch.collection_arn
@@ -136,3 +127,12 @@ module "cloudwatch_monitoring" {
     module.lambda_flights_enriched
   ]
 }
+
+module "iam" {
+  source       = "./modules/iam"
+  project_name = var.project_name
+  tags         = var.tags
+  bucket_arn    = data.aws_s3_bucket.landing.arn
+  dash_user_arns = local.dash_user_arns  
+}
+
