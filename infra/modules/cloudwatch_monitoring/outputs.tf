@@ -24,14 +24,14 @@ output "degraded_composite_alarm_arn" {
 }
 
 # OpenSearch Serverless Alarms
-output "opensearch_serverless_alarms" {
-  description = "Mapa com ARNs dos alarmes do OpenSearch Serverless"
-  value = var.opensearch_type == "serverless" ? {
-    search_ocu      = try(aws_cloudwatch_metric_alarm.opensearch_serverless_search_ocu[0].arn, null)
-    indexing_ocu    = try(aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_ocu[0].arn, null)
-    indexing_errors = try(aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_failures[0].arn, null)
-  } : {}
-}
+# output "opensearch_serverless_alarms" {
+#   description = "Mapa com ARNs dos alarmes do OpenSearch Serverless"
+#   value = var.opensearch_type == "serverless" ? {
+#     search_ocu      = try(aws_cloudwatch_metric_alarm.opensearch_serverless_search_ocu[0].arn, null)
+#     indexing_ocu    = try(aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_ocu[0].arn, null)
+#     indexing_errors = try(aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_failures[0].arn, null)
+#   } : {}
+# }
 
 
 output "kinesis_alarms" {
@@ -53,14 +53,14 @@ output "firehose_s3_alarms" {
   } : {}
 }
 
-output "firehose_opensearch_alarms" {
-  description = "Mapa com ARNs dos alarmes do Firehose OpenSearch"
-  value = var.firehose_opensearch_name != "" ? {
-    delivery_failures  = aws_cloudwatch_metric_alarm.firehose_os_delivery_failures[0].arn
-    success_rate       = aws_cloudwatch_metric_alarm.firehose_os_success_rate[0].arn
-    documents_dropped  = aws_cloudwatch_metric_alarm.firehose_os_documents_dropped[0].arn
-  } : {}
-}
+# output "firehose_opensearch_alarms" {
+#   description = "Mapa com ARNs dos alarmes do Firehose OpenSearch"
+#   value = var.firehose_opensearch_name != "" ? {
+#     delivery_failures  = aws_cloudwatch_metric_alarm.firehose_os_delivery_failures[0].arn
+#     success_rate       = aws_cloudwatch_metric_alarm.firehose_os_success_rate[0].arn
+#     documents_dropped  = aws_cloudwatch_metric_alarm.firehose_os_documents_dropped[0].arn
+#   } : {}
+# }
 
 output "lambda_alarms" {
   description = "Mapa com ARNs dos alarmes das Lambdas"

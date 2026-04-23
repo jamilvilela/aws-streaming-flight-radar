@@ -170,81 +170,81 @@ resource "aws_cloudwatch_metric_alarm" "firehose_s3_incoming_records_low" {
   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
 }
 
-# =============================================================================
-# ALARMES - KINESIS FIREHOSE (OPENSEARCH)
-# =============================================================================
+# # =============================================================================
+# # ALARMES - KINESIS FIREHOSE (OPENSEARCH)
+# # =============================================================================
 
-resource "aws_cloudwatch_metric_alarm" "firehose_os_delivery_failures" {
-  count = var.firehose_opensearch_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "firehose_os_delivery_failures" {
+#   count = var.firehose_opensearch_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-firehose-opensearch-delivery-failures"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "DeliveryToOpenSearch.Failed"
-  namespace           = "AWS/Firehose"
-  period              = var.alarm_period_seconds
-  statistic           = "Sum"
-  threshold           = 0
-  alarm_description   = "Alerta: Falhas na entrega de registros para OpenSearch"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-firehose-opensearch-delivery-failures"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "DeliveryToOpenSearch.Failed"
+#   namespace           = "AWS/Firehose"
+#   period              = var.alarm_period_seconds
+#   statistic           = "Sum"
+#   threshold           = 0
+#   alarm_description   = "Alerta: Falhas na entrega de registros para OpenSearch"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = local.firehose_opensearch_dimensions
+#   dimensions = local.firehose_opensearch_dimensions
   
-  tags = merge(var.tags, {
-    AlarmType = "FirehoseOSFailures"
-    Severity  = "High"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "FirehoseOSFailures"
+#     Severity  = "High"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
 
-resource "aws_cloudwatch_metric_alarm" "firehose_os_success_rate" {
-  count = var.firehose_opensearch_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "firehose_os_success_rate" {
+#   count = var.firehose_opensearch_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-firehose-opensearch-low-success-rate"
-  comparison_operator = "LessThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "DeliveryToOpenSearch.Success"
-  namespace           = "AWS/Firehose"
-  period              = var.alarm_period_seconds
-  statistic           = "Average"
-  threshold           = 100 - var.alarm_thresholds.firehose_delivery_failure_percent
-  alarm_description   = "Alerta: Taxa de sucesso na entrega para OpenSearch abaixo de ${100 - var.alarm_thresholds.firehose_delivery_failure_percent}%"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-firehose-opensearch-low-success-rate"
+#   comparison_operator = "LessThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "DeliveryToOpenSearch.Success"
+#   namespace           = "AWS/Firehose"
+#   period              = var.alarm_period_seconds
+#   statistic           = "Average"
+#   threshold           = 100 - var.alarm_thresholds.firehose_delivery_failure_percent
+#   alarm_description   = "Alerta: Taxa de sucesso na entrega para OpenSearch abaixo de ${100 - var.alarm_thresholds.firehose_delivery_failure_percent}%"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = local.firehose_opensearch_dimensions
+#   dimensions = local.firehose_opensearch_dimensions
   
-  tags = merge(var.tags, {
-    AlarmType = "FirehoseOSSuccessRate"
-    Severity  = "Medium"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "FirehoseOSSuccessRate"
+#     Severity  = "Medium"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
 
-resource "aws_cloudwatch_metric_alarm" "firehose_os_documents_dropped" {
-  count = var.firehose_opensearch_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "firehose_os_documents_dropped" {
+#   count = var.firehose_opensearch_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-firehose-opensearch-documents-dropped"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "Documents.Dropped"
-  namespace           = "AWS/Firehose"
-  period              = var.alarm_period_seconds
-  statistic           = "Sum"
-  threshold           = 0
-  alarm_description   = "Alerta: Documentos sendo descartados pelo Firehose OpenSearch"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-firehose-opensearch-documents-dropped"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "Documents.Dropped"
+#   namespace           = "AWS/Firehose"
+#   period              = var.alarm_period_seconds
+#   statistic           = "Sum"
+#   threshold           = 0
+#   alarm_description   = "Alerta: Documentos sendo descartados pelo Firehose OpenSearch"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = local.firehose_opensearch_dimensions
+#   dimensions = local.firehose_opensearch_dimensions
   
-  tags = merge(var.tags, {
-    AlarmType = "FirehoseOSDocumentsDropped"
-    Severity  = "High"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "FirehoseOSDocumentsDropped"
+#     Severity  = "High"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
 
 # =============================================================================
 # ALARMES - LAMBDA FUNCTIONS
@@ -338,83 +338,84 @@ resource "aws_cloudwatch_metric_alarm" "lambda_duration_p95" {
 # ALARMES - OPENSEARCH SERVERLESS (AWS/AOSS)
 # =============================================================================
 
-resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_search_ocu" {
-  count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_search_ocu" {
+#   count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-opensearch-serverless-high-search-ocu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "SearchOCUUtilization"
-  namespace           = "AWS/AOSS"  # ✅ Serverless usa AWS/AOSS
-  period              = var.alarm_period_seconds
-  statistic           = "Average"
-  threshold           = var.alarm_thresholds.opensearch_ocu_utilization
-  alarm_description   = "Alerta: Utilização de Search OCU acima de ${var.alarm_thresholds.opensearch_ocu_utilization}%"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-opensearch-serverless-high-search-ocu"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "SearchOCUUtilization"
+#   namespace           = "AWS/AOSS"  # ✅ Serverless usa AWS/AOSS
+#   period              = var.alarm_period_seconds
+#   statistic           = "Average"
+#   threshold           = var.alarm_thresholds.opensearch_ocu_utilization
+#   alarm_description   = "Alerta: Utilização de Search OCU acima de ${var.alarm_thresholds.opensearch_ocu_utilization}%"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = {
-    CollectionName = var.opensearch_collection_name
-  }
+#   dimensions = {
+#     CollectionName = var.opensearch_collection_name
+#   }
   
-  tags = merge(var.tags, {
-    AlarmType = "OpenSearchServerlessSearchOCU"
-    Severity  = "High"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "OpenSearchServerlessSearchOCU"
+#     Severity  = "High"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
 
-resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_indexing_ocu" {
-  count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_indexing_ocu" {
+#   count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-opensearch-serverless-high-indexing-ocu"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "IndexingOCUUtilization"
-  namespace           = "AWS/AOSS"
-  period              = var.alarm_period_seconds
-  statistic           = "Average"
-  threshold           = var.alarm_thresholds.opensearch_ocu_utilization
-  alarm_description   = "Alerta: Utilização de Indexing OCU acima de ${var.alarm_thresholds.opensearch_ocu_utilization}%"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-opensearch-serverless-high-indexing-ocu"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "IndexingOCUUtilization"
+#   namespace           = "AWS/AOSS"
+#   period              = var.alarm_period_seconds
+#   statistic           = "Average"
+#   threshold           = var.alarm_thresholds.opensearch_ocu_utilization
+#   alarm_description   = "Alerta: Utilização de Indexing OCU acima de ${var.alarm_thresholds.opensearch_ocu_utilization}%"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = {
-    CollectionName = var.opensearch_collection_name
-  }
+#   dimensions = {
+#     CollectionName = var.opensearch_collection_name
+#   }
   
-  tags = merge(var.tags, {
-    AlarmType = "OpenSearchServerlessIndexingOCU"
-    Severity  = "High"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "OpenSearchServerlessIndexingOCU"
+#     Severity  = "High"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
 
-resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_indexing_failures" {
-  count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
+# resource "aws_cloudwatch_metric_alarm" "opensearch_serverless_indexing_failures" {
+#   count = var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? 1 : 0
   
-  alarm_name          = "${local.name_prefix}-opensearch-serverless-indexing-failures"
-  comparison_operator = "GreaterThanThreshold"
-  evaluation_periods  = var.alarm_evaluation_periods
-  metric_name         = "IndexingFailures"
-  namespace           = "AWS/AOSS"
-  period              = var.alarm_period_seconds
-  statistic           = "Sum"
-  threshold           = var.alarm_thresholds.opensearch_indexing_failures
-  alarm_description   = "Alerta: Falhas de indexação no OpenSearch Serverless"
-  treat_missing_data  = "notBreaching"
+#   alarm_name          = "${local.name_prefix}-opensearch-serverless-indexing-failures"
+#   comparison_operator = "GreaterThanThreshold"
+#   evaluation_periods  = var.alarm_evaluation_periods
+#   metric_name         = "IndexingFailures"
+#   namespace           = "AWS/AOSS"
+#   period              = var.alarm_period_seconds
+#   statistic           = "Sum"
+#   threshold           = var.alarm_thresholds.opensearch_indexing_failures
+#   alarm_description   = "Alerta: Falhas de indexação no OpenSearch Serverless"
+#   treat_missing_data  = "notBreaching"
   
-  dimensions = {
-    CollectionName = var.opensearch_collection_name
-  }
+#   dimensions = {
+#     CollectionName = var.opensearch_collection_name
+#   }
   
-  tags = merge(var.tags, {
-    AlarmType = "OpenSearchServerlessIndexing"
-    Severity  = "High"
-  })
+#   tags = merge(var.tags, {
+#     AlarmType = "OpenSearchServerlessIndexing"
+#     Severity  = "High"
+#   })
   
-  alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
-}
+#   alarm_actions = var.sns_alarm_topic_arn != "" ? [var.sns_alarm_topic_arn] : []
+# }
+
 # =============================================================================
 # MAINTENANCE WINDOW ALARM (para actions_suppressor)
 # =============================================================================
@@ -449,8 +450,8 @@ resource "aws_cloudwatch_composite_alarm" "pipeline_critical" {
     var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_iterator_age.alarm_name}\")" : null,
     var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_write_throttled.alarm_name}\")" : null,
     var.firehose_s3_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_s3_delivery_failures[0].alarm_name}\")" : null,
-    var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_delivery_failures[0].alarm_name}\")" : null,
-    var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_failures[0].alarm_name}\")" : null,
+    # var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_delivery_failures[0].alarm_name}\")" : null,
+    # var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.opensearch_serverless_indexing_failures[0].alarm_name}\")" : null,
   ]))
   
   tags = merge(var.tags, {
@@ -476,8 +477,8 @@ resource "aws_cloudwatch_composite_alarm" "pipeline_degraded" {
   alarm_rule = join(" OR ", compact([
     var.kinesis_stream_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.kinesis_read_throttled.alarm_name}\")" : null,
     var.firehose_s3_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_s3_success_rate[0].alarm_name}\")" : null,
-    var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_success_rate[0].alarm_name}\")" : null,
-    var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.opensearch_serverless_search_ocu[0].alarm_name}\")" : null,
+    # var.firehose_opensearch_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.firehose_os_success_rate[0].alarm_name}\")" : null,
+    # var.opensearch_type == "serverless" && var.opensearch_collection_name != "" ? "ALARM(\"${aws_cloudwatch_metric_alarm.opensearch_serverless_search_ocu[0].alarm_name}\")" : null,
     length(var.lambda_functions) > 0 ? "ALARM(\"${aws_cloudwatch_metric_alarm.lambda_errors[var.lambda_functions[0].name].alarm_name}\")" : null,
   ]))
   

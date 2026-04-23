@@ -60,8 +60,12 @@ lambda_functions = {
 ##############################################
 # Kinesis Streams e Firehose Configuration
 kinesis_streams = {
-  flights_raw = {
-    name = "flight-radar-stream-flights-raw"
+  flights = {
+    name = "flight-radar-stream-flights"
+    mode ="ON_DEMAND"
+  }
+  flights_rt = {
+    name = "flight-radar-stream-flights-rt"
     mode ="ON_DEMAND"
   }
 }
@@ -77,11 +81,11 @@ opensearch = {
 
 
 kinesis_firehose = {
-  flights_enriched = {
-    name                = "flight-radar-firehose-flights-enriched"
-    prefix              = "opensky/enriched-flights/"
-    error_output_prefix = "opensky/enriched-flights-errors/"
-    opensearch_index_name  = "flight-radar-flights"
+  flights = {
+    name                = "flight-radar-firehose-flights"
+    prefix              = "opensky/flights/"
+    error_output_prefix = "opensky/flights-error/"
+    # opensearch_index_name  = "flight-radar-flights"
   }
 }
 

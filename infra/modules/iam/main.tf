@@ -30,3 +30,19 @@ resource "aws_iam_role_policy" "firehose_policy" {
   policy = data.aws_iam_policy_document.firehose_policy.json
 }
 
+# ============================================================================
+# KINESIS DATA ANALYTICS (Apache Flink) ROLE
+# ============================================================================
+
+resource "aws_iam_role" "kda_execution" {
+  name               = "${var.project_name}-kda-execution-role"
+  assume_role_policy = data.aws_iam_policy_document.kda_assume_role_policy.json
+  tags               = var.tags
+}
+
+# Policy para KDA acessar Kinesis, S3, CloudWatch Logs
+resource "aws_iam_role_policy" "kda_policy" {
+  name   = "${var.project_name}-kda-policy"
+  role   = aws_iam_role.kda_execution.id
+  policy = data.aws_iam_policy_document.kda_policy.json
+}

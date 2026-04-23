@@ -121,18 +121,106 @@ data "aws_iam_policy_document" "opensearch_dashboard_access" {
   }
 }
 
-resource "aws_iam_policy" "opensearch_dashboard_access" {
-  name        = "${var.project_name}-opensearch-dashboard-access"
-  description = "Acesso ao OpenSearch Dashboards para ${var.project_name}"
-  policy      = data.aws_iam_policy_document.opensearch_dashboard_access.json
-  
-  tags = var.tags
+# ============================================================================
+# KDA (Kinesis Data Analytics) ASSUME ROLE POLICY
+# ============================================================================
+
+data "aws_iam_policy_document" "kda_assume_role_policy" {
+  statement {
+    actions = ["sts:AssumeRole"]
+    principals {
+      type        = "Service"
+      identifiers = ["kinesisanalytics.amazonaws.com"]
+    }
+  }
 }
 
-# Anexar a policy aos usuários
-resource "aws_iam_user_policy_attachment" "dashboard_access" {
-  for_each = toset(var.dash_user_arns)
-  
-  user       = split("/", each.value)[1]  # Extrai nome do usuário do ARN
-  policy_arn = aws_iam_policy.opensearch_dashboard_access.arn
+# ============================================================================
+# KDA POLICY: Acesso a Kinesis, S3, CloudWatch, etc
+# ============================================================================
+
+data "aws_iam_policy_document" "kda_policy" {
+  # Kinesis streams: read source, write to sinks
+  statement {
+    effect = "Allow"
+    actions = [
+      "kinesis:DescribeStream",
+      "kinesis:GetRecords",
+      "kinesis:GetShardIterator",
+      "kinesis:ListRecords",
+      "kinesis:ListShards",
+      "kinesis:ListStreams",
+      "kinesis:PutRecord",
+      "kinesis:PutRecords"
+    ]
+    resources = ["*"]
+  }
+
+  # S3: read JAR files, reference data, AND write checkpoints for state management
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:ListBucket",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:aws:s3:::*",
+      "arn:aws:s3:::*/*"
+    ]
+  }
+
+  # CloudWatch: write logs
+  statement {
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+      "logs:DescribeLogStreams"
+    ]
+    resources = ["arn:aws:logs:*:*:*"]
+  }
+
+  # CloudWatch Metrics
+  statement {
+    effect = "Allow"
+    actions = [
+      "cloudwatch:PutMetricData"
+    ]
+    resources = ["*"]
+  }
+
+  # Snapshots (disaster recovery)
+  statement {
+    effect = "Allow"
+    actions = [
+      "kinesisanalytics:CreateApplicationSnapshot",
+      "kinesisanalytics:DescribeApplicationSnapshot",
+      "kinesisanalytics:DeleteApplicationSnapshot",
+      "kinesisanalytics:ListApplicationSnapshots"
+    ]
+    resources = ["*"]
+  }
+
+  # KMS: decrypt/encrypt checkpoints if using encrypted S3
+  statement {
+    effect = "Allow"
+    actions = [
+      "kms:Decrypt",
+      "kms:GenerateDataKey",
+      "kms:DescribeKey"
+    ]
+    resources = ["*"]
+  }
 }
+
+# # Anexar a policy aos usuários
+# resource "aws_iam_user_policy_attachment" "dashboard_access" {
+#   for_each = toset(var.dash_user_arns)
+  
+#   user       = split("/", each.value)[1]  # Extrai nome do usuário do ARN
+#   policy_arn = aws_iam_policy.opensearch_dashboard_access.arn
+# }

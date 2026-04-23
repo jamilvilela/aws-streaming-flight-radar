@@ -1,0 +1,174 @@
+-- ============================================================================
+-- FLINK SQL JOBS: PIPELINE COMPLETO DE INGESTÃO → TRANSFORMAÇÃO → SINKS
+-- ============================================================================
+--
+-- Este arquivo integra a pipeline completa de processamento de dados ADS-B:
+--
+-- CAMADA 1 (INGESTÃO):
+--   01_source.sql           → Table SOURCE do Kinesis (state_vectors_source)
+--
+-- CAMADA 2 (TRANSFORMAÇÃO):
+--   02_enriched_view.sql    → VIEW com conversões de unidades + classificações
+--
+-- CAMADA 3 (SINKS):
+--   03_sinks_kinesis.sql    → 4 streams de destino com transformações analíticas
+--
+-- ============================================================================
+-- EXECUÇÃO: Execute os arquivos nesta ordem:
+-- ============================================================================
+--
+-- 1. source
+--    ├─ Cria table SOURCE (state_vectors_source)
+--    └─ Conecta ao Kinesis "flights-raw"
+--
+-- 2. view
+--    ├─ Cria VIEW enriched_flights
+--    ├─ Aplica conversões: m/s→kts, m→ft
+--    ├─ Classifica: flight_phase, vertical_trend, speed_category
+--    └─ Filtra dados inválidos
+--
+-- 3. sinks
+--    ├─ Sink A (flights-positions-1min)
+--    │  └─ Agregação: país + fase de voo, janela 1min
+--    ├─ Sink B (flights-altitude-bands)
+--    │  └─ Agregação: fase + tendência vertical, janela 1min
+--    ├─ Sink C (flights-phase-changes)
+--    │  └─ Filtrado: mudanças de fase significativas, janela 30s
+--    └─ Sink D (flights-enriched-raw)
+--       └─ Passthrough enriquecido: todas as aeronaves
+--
+-- ============================================================================
+-- ARQUITETURA DE DADOS
+-- ============================================================================
+--
+--                    [OpenSky API]
+--                          ↓
+--                   [API Gateway]
+--                          ↓
+--                 [Lambda-ingestão]
+--                          ↓
+--              [Kinesis Stream: flights-raw]
+--                          ↓
+--         ┌─────────────────────────────────────┐
+--         │   FLINK SQL: state_vectors_source   │
+--         │   (TABLE SOURCE - Kinesis)          │
+--         └─────────────────────────────────────┘
+--                          ↓
+--         ┌─────────────────────────────────────┐
+--         │   enriched_flights (VIEW)           │
+--         │   • Conversão de unidades           │
+--         │   • Classificações analíticas       │
+--         │   • Validações                      │
+--         └─────────────────────────────────────┘
+--                          ↓
+--         ┌────────────────────────────────────────────────────────┐
+--         │         4 TRANSFORMAÇÕES PARALELAS (SINKS)            │
+--         ├────────────────────────────────────────────────────────┤
+--         │ Sink A: positions-1min        │ Sink B: altitude-bands    │
+--         │ (por país/fase, 1min)         │ (por fase/tendência, 1min)│
+--         │                               │                           │
+--         │ Sink C: phase-changes         │ Sink D: enriched-raw      │
+--         │ (mudanças significativas)     │ (passthrough enriquecido) │
+--         └────────────────────────────────────────────────────────┘
+--                     ↓↓↓↓
+--         ┌─────────────────────────────────────┐
+--         │   Kinesis Firehose (S3 backup)     │
+--         └─────────────────────────────────────┘
+--                     ↓
+--         ┌─────────────────────────────────────┐
+--         │ S3 Landing (Glue Catalog)           │
+--         └─────────────────────────────────────┘
+--                     ↓
+--         ┌─────────────────────────────────────┐
+--         │   Redshift Warehouse               │
+--         │   • MV time-series                 │
+--         │   • Facts tables (histórico)       │
+--         └─────────────────────────────────────┘
+--                     ↓
+--         ┌─────────────────────────────────────┐
+--         │   QuickSight (BI & Dashboards)     │
+--         └─────────────────────────────────────┘
+--
+-- ============================================================================
+-- FLUXO DE DADOS: EXEMPLO
+-- ============================================================================
+--
+-- INPUT (Kinesis flights-raw):
+--   {\n--     "icao24": "a02345",
+--     "callsign": "TAP1234",
+--     "origin_country": "PT",
+--     "time_position": "2026-04-19T14:30:45",
+--     "longitude": -9.1352,
+--     "latitude": 38.6814,
+--     "altitude": 3500,
+--     "on_ground": false,
+--     "velocity": 250.5,
+--     "heading": 270,
+--     "vertical_rate": 5.2,
+--     "geo_altitude": 3600,
+--     "squawk": "4521",
+--     "spi": false,
+--     "position_source": 0
+--   }
+--
+-- ENRIQUECIMENTO (VIEW enriched_flights):
+--   • altitude_ft = 3500 * 3.28084 = 11483 ft
+--   • velocity_kts = 250.5 * 1.94384 = 486.5 kts
+--   • flight_phase = 'cruise' (11483 ft está entre 10k-35k)
+--   • vertical_trend = 'climbing' (5.2 m/s > 2.0)
+--   • speed_category = 'fast' (486.5 kts está entre 300-500)
+--
+-- OUTPUT SINKS:
+--   Sink A: aggregado por país (PT) + fase (cruise)
+--   Sink B: agregado por fase (cruise) + tendência (climbing)
+--   Sink C: passado (filtrado por ABS(vrate_fpm) > 500)
+--   Sink D: evento completo enriquecido
+--
+-- ============================================================================
+-- CONFIGURAÇÕES KINESIS
+-- ============================================================================
+--
+-- Retenção de dados: 24 horas (padrão)
+-- Modo: ON_DEMAND (auto-scaling automático)
+--
+-- Streams a criar (terraform):
+--   1. flights-raw            → source (dados brutos)
+--   2. flights-positions-1min → sink A (agregação de densidade)
+--   3. flights-altitude-bands → sink B (distribuição de altitude)
+--   4. flights-phase-changes  → sink C (mudanças críticas)
+--   5. flights-enriched-raw   → sink D (dados enriquecidos para S3)
+--
+-- ============================================================================
+-- PERFORMANCE ESPERADA
+-- ============================================================================
+--
+-- Throughput global:
+--   • Entradas (flights-raw): ~50k-100k eventos/min (aprox)
+--   • Output Sink A: ~100-300 eventos/min (baixo - agregado)
+--   • Output Sink B: ~500-1000 eventos/min (médio)
+--   • Output Sink C: ~100-500 eventos/min (variável)
+--   • Output Sink D: ~50k-100k eventos/min (alto - passthrough)
+--
+-- Latência end-to-end:
+--   • Ingestão → enriquecimento: ~50-100ms
+--   • Aggregation (Sink A/B): até 1 minuto (TUMBLE window)
+--   • Phase changes (Sink C): até 30 segundos
+--   • Passthrough (Sink D): ~500ms-1s
+--
+-- Checkpointing:
+--   • Intervalo: 60 segundos
+--   • Modo: exactly-once (garantia de processamento)
+--   • Backend: RocksDB (em KDA)
+--
+-- ============================================================================
+-- PRÓXIMOS PASSOS
+-- ============================================================================
+--
+-- 1. Executar scripts SQL (02 → 01 → 03 na ordem correta)
+-- 2. Validar saída nos streams Kinesis (CloudWatch Logs)
+-- 3. Conectar Firehose aos streams (S3 backup)
+-- 4. Configurar Redshift (tabelas fact + MVs)
+-- 5. Criar dashboards QuickSight
+-- 6. Implementar alertas CloudWatch (anomalias)
+--
+-- ============================================================================
