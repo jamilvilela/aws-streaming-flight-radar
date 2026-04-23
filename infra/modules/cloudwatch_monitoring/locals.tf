@@ -11,20 +11,20 @@ locals {
     DeliveryStreamName = var.firehose_s3_name
   } : {}
   
-  firehose_opensearch_dimensions = var.firehose_opensearch_name != "" ? {
-    DeliveryStreamName = var.firehose_opensearch_name
-  } : {}
+  # firehose_opensearch_dimensions = var.firehose_opensearch_name != "" ? {
+  #   DeliveryStreamName = var.firehose_opensearch_name
+  # } : {}
   
-  # ✅ Dimensões OpenSearch Serverless
-  opensearch_serverless_dimensions = var.opensearch_collection_name != "" ? {
-    CollectionName = var.opensearch_collection_name
-  } : {}
+  # # ✅ Dimensões OpenSearch Serverless
+  # opensearch_serverless_dimensions = var.opensearch_collection_name != "" ? {
+  #   CollectionName = var.opensearch_collection_name
+  # } : {}
   
-  # ✅ Dimensões OpenSearch Cluster
-  opensearch_cluster_dimensions = var.opensearch_domain_name != "" ? {
-    DomainName = var.opensearch_domain_name
-    ClientId   = "all"
-  } : {}
+  # # ✅ Dimensões OpenSearch Cluster
+  # opensearch_cluster_dimensions = var.opensearch_domain_name != "" ? {
+  #   DomainName = var.opensearch_domain_name
+  #   ClientId   = "all"
+  # } : {}
   
   # Cores para widgets do dashboard
   colors = {
@@ -201,206 +201,6 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.firehose_s3_name != ""],
-    
-    # Firehose OpenSearch Widgets
-    [for i in [0] : {
-      type   = "text"
-      x      = 0
-      y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0)
-      width  = 24
-      height = 1
-      properties = { markdown = "## 🔍 Firehose → OpenSearch" }
-    } if var.firehose_opensearch_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 0
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title       = "✅ Index"
-        period      = local.periods.short
-        stat        = "Sum"
-        region      = var.aws_region
-        metrics     = [["AWS/Firehose", "DeliveryToOpenSearch.Success", "DeliveryStreamName", var.firehose_opensearch_name, { label = "OK", color = local.colors.success }]]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0 } }
-        annotations = { horizontal = [] }
-      }
-    } if var.firehose_opensearch_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 8
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title  = "❌ Falhas"
-        period = local.periods.short
-        stat   = "Sum"
-        region = var.aws_region
-        metrics = [
-          ["AWS/Firehose", "DeliveryToOpenSearch.Failed", "DeliveryStreamName", var.firehose_opensearch_name, { label = "Fail", color = local.colors.error }],
-          ["AWS/Firehose", "Documents.Dropped", "DeliveryStreamName", var.firehose_opensearch_name, { label = "Drop", color = local.colors.warning }]
-        ]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0 } }
-        annotations = { horizontal = [] }
-      }
-    } if var.firehose_opensearch_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 16
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title       = "⏱️ Latência"
-        period      = local.periods.short
-        stat        = "Average"
-        region      = var.aws_region
-        metrics     = [["AWS/Firehose", "DeliveryToOpenSearch.SuccessLatency", "DeliveryStreamName", var.firehose_opensearch_name, { label = "ms", color = local.colors.info }]]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0, label = "ms" } }
-        annotations = { horizontal = [] }
-      }
-    } if var.firehose_opensearch_name != ""],
-    
-    # Lambda Widgets
-    flatten([
-      for idx, f in var.lambda_functions : [
-        {
-          type   = "text"
-          x      = 0
-          y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6)
-          width  = 24
-          height = 1
-          properties = { markdown = "### ⚡ ${f.name}" }
-        },
-        {
-          type   = "metric"
-          x      = 0
-          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
-          width  = 8
-          height = 6
-          properties = {
-            title       = "📊 Invocações"
-            period      = local.periods.short
-            stat        = "Sum"
-            region      = var.aws_region
-            metrics     = [["AWS/Lambda", "Invocations", "FunctionName", f.name, { label = "Count", color = local.colors.info }]]
-            view        = "timeSeries"
-            yAxis       = { left = { min = 0 } }
-            annotations = { horizontal = [] }
-          }
-        },
-        {
-          type   = "metric"
-          x      = 8
-          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
-          width  = 8
-          height = 6
-          properties = {
-            title       = "❌ Erros"
-            period      = local.periods.short
-            stat        = "Sum"
-            region      = var.aws_region
-            metrics     = [["AWS/Lambda", "Errors", "FunctionName", f.name, { label = "Err", color = local.colors.error }]]
-            view        = "timeSeries"
-            yAxis       = { left = { min = 0 } }
-            annotations = { horizontal = [] }
-          }
-        },
-        {
-          type   = "metric"
-          x      = 16
-          y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (idx * 6) + 1
-          width  = 8
-          height = 6
-          properties = {
-            title       = "⏱️ Duração Max"
-            period      = local.periods.short
-            stat        = "Maximum"
-            region      = var.aws_region
-            metrics     = [["AWS/Lambda", "Duration", "FunctionName", f.name, { label = "Max ms", color = local.colors.warning }]]
-            view        = "timeSeries"
-            yAxis       = { left = { min = 0, label = "ms" } }
-            annotations = { horizontal = [] }
-          }
-        }
-      ] if length(var.lambda_functions) > 0
-    ]),
-    
-    # =====================================================================
-    # OPENSEARCH SERVERLESS WIDGETS 
-    # =====================================================================
-    [for i in [0] : {
-      type   = "text"
-      x      = 0
-      y      = (var.kinesis_stream_name != "" ? 13 : 1) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
-      width  = 24
-      height = 1
-      properties = { markdown = "## 🗄️ OpenSearch Serverless: ${var.opensearch_collection_name}" }
-    } if var.opensearch_type == "serverless" && var.opensearch_collection_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 0
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title  = "💻 Search OCU %"
-        period = local.periods.short
-        stat   = "Average"
-        region = var.aws_region
-        metrics = [["AWS/AOSS", "SearchOCUUtilization", "CollectionName", var.opensearch_collection_name, { label = "Search OCU", color = local.colors.info }]]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0, max = 100, label = "%" } }
-        annotations = { horizontal = [{ label = "Threshold ${var.alarm_thresholds.opensearch_ocu_utilization}%", value = var.alarm_thresholds.opensearch_ocu_utilization, color = local.colors.error }] }
-      }
-    } if var.opensearch_type == "serverless" && var.opensearch_collection_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 8
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title  = "📈 Indexing OCU %"
-        period = local.periods.short
-        stat   = "Average"
-        region = var.aws_region
-        metrics = [["AWS/AOSS", "IndexingOCUUtilization", "CollectionName", var.opensearch_collection_name, { label = "Index OCU", color = local.colors.warning }]]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0, max = 100, label = "%" } }
-        annotations = { horizontal = [{ label = "Threshold ${var.alarm_thresholds.opensearch_ocu_utilization}%", value = var.alarm_thresholds.opensearch_ocu_utilization, color = local.colors.error }] }
-      }
-    } if var.opensearch_type == "serverless" && var.opensearch_collection_name != ""],
-    
-    [for i in [0] : {
-      type   = "metric"
-      x      = 16
-      y      = (var.kinesis_stream_name != "" ? 14 : 2) + (var.firehose_s3_name != "" ? 7 : 0) + (var.firehose_opensearch_name != "" ? 7 : 0) + (length(var.lambda_functions) > 0 ? 1 + (length(var.lambda_functions) * 6) : 0)
-      width  = 8
-      height = 6
-      properties = {
-        title  = "📊 Index/Search Rate"
-        period = local.periods.short
-        stat   = "Average"
-        region = var.aws_region
-        metrics = [
-          ["AWS/AOSS", "IndexingRate", "CollectionName", var.opensearch_collection_name, { label = "Idx/s", color = local.colors.success }],
-          ["AWS/AOSS", "SearchRequestRate", "CollectionName", var.opensearch_collection_name, { label = "Src/s", color = local.colors.info }]
-        ]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0, label = "Ops/s" } }
-        annotations = { horizontal = [] }
-      }
-    } if var.opensearch_type == "serverless" && var.opensearch_collection_name != ""],
+  
   ])
 }

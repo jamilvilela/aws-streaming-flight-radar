@@ -1,0 +1,6 @@
+módulo Glue job @AWS
++ IAM least-privilege + KMS encrypt
++ CloudWatch logs + alarm on failure
++ variáveis: env, region, bucket_name
+! remote state S3 
+✗ sem hardcode ARN

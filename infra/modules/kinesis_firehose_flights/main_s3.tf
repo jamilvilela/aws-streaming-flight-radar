@@ -10,11 +10,9 @@ resource "aws_kinesis_firehose_delivery_stream" "firehose_flights_to_s3" {
   extended_s3_configuration {
     role_arn            = var.role_arn 
     bucket_arn          = var.bucket_arn
-    
-    prefix              = "opensky/enriched-flights/"
-    error_output_prefix = "opensky/enriched-flights-errors/"
-    
-    kms_key_arn         = var.kms_firehose_arn
+    compression_format  = "Snappy"
+    file_extension      = ".json"
+    custom_time_zone    = "America/Sao_Paulo"
     buffering_interval  = 60
     buffering_size      = 2
 
@@ -22,8 +20,14 @@ resource "aws_kinesis_firehose_delivery_stream" "firehose_flights_to_s3" {
       enabled = false
     }
 
+    prefix              = "opensky/flights/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/"
+    error_output_prefix = "opensky/flights-errors/year=!{timestamp:yyyy}/month=!{timestamp:MM}/day=!{timestamp:dd}/hour=!{timestamp:HH}/!{firehose:error-output-type}/"
+    # prefix              = "opensky/flights/"
+    # error_output_prefix = "opensky/flights-errors/"
+
+
     cloudwatch_logging_options {
-      enabled         = true
+      enabled         = "true"
       log_group_name  = "/aws/kinesisfirehose/${var.kinesis_firehose.name}"
       log_stream_name = "S3Delivery"
     }

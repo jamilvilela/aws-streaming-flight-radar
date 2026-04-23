@@ -12,3 +12,8 @@ output "firehose_policy_arn" {
   description = "ARN da policy inline do Firehose"
   value       = aws_iam_role_policy.firehose_policy.id
 }
+
+output "kda_execution_role_arn" {
+  description = "ARN da role de execução do KDA (Kinesis Data Analytics)"
+  value       = aws_iam_role.kda_execution.arn
+}

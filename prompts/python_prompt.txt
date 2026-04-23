@@ -1,0 +1,5 @@
+fn lê S3 parquet → pandas df
++ retry logic + logging structured
++ type hints + pydantic config
+! sem hardcode creds
+✗ evita pd.read_parquet direto

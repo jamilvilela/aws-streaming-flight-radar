@@ -35,7 +35,7 @@ variable "kinesis_firehose" {
     name              = string
     prefix             = string
     error_output_prefix = string
-    opensearch_index_name = string
+    # opensearch_index_name = string
   }))
 }
 
@@ -72,43 +72,43 @@ variable "tables" {
   type        = map(string)
 }
 
-variable "opensearch" {
-  description = "Configurações do OpenSearch Serverless"
-  type = object({
-    flights = object({
-      collection_name    = string
-      collection_type    = string
-      standby_replicas   = string
-      vpc_id             = string
-    })
-  })
-  default = {
-    flights = {
-      collection_name    = "flight-radar-flights"
-      collection_type    = "TIMESERIES"
-      standby_replicas   = "ENABLED"
-      vpc_id             = ""
-    }
-  }
-  validation {
-    condition = contains(
-      ["SEARCH", "TIMESERIES", "VECTORSEARCH"],
-      var.opensearch.flights.collection_type
-    )
-    error_message = "collection_type must be one of: SEARCH, TIMESERIES, VECTORSEARCH."
-  }
-  validation {
-    condition = contains(
-      ["ENABLED", "DISABLED"],
-      var.opensearch.flights.standby_replicas
-    )
-    error_message = "standby_replicas must be either ENABLED or DISABLED."
-  }
-  validation {
-    condition = length(var.opensearch.flights.collection_name) >= 3 && length(var.opensearch.flights.collection_name) <= 63 && can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.opensearch.flights.collection_name))
-    error_message = "collection_name must be 3-63 characters, start with letter, end with letter/number, lowercase only."
-  }
-}
+# variable "opensearch" {
+#   description = "Configurações do OpenSearch Serverless"
+#   type = object({
+#     flights = object({
+#       collection_name    = string
+#       collection_type    = string
+#       standby_replicas   = string
+#       vpc_id             = string
+#     })
+#   })
+#   default = {
+#     flights = {
+#       collection_name    = "flight-radar-flights"
+#       collection_type    = "TIMESERIES"
+#       standby_replicas   = "ENABLED"
+#       vpc_id             = ""
+#     }
+#   }
+#   validation {
+#     condition = contains(
+#       ["SEARCH", "TIMESERIES", "VECTORSEARCH"],
+#       var.opensearch.flights.collection_type
+#     )
+#     error_message = "collection_type must be one of: SEARCH, TIMESERIES, VECTORSEARCH."
+#   }
+#   validation {
+#     condition = contains(
+#       ["ENABLED", "DISABLED"],
+#       var.opensearch.flights.standby_replicas
+#     )
+#     error_message = "standby_replicas must be either ENABLED or DISABLED."
+#   }
+#   validation {
+#     condition = length(var.opensearch.flights.collection_name) >= 3 && length(var.opensearch.flights.collection_name) <= 63 && can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.opensearch.flights.collection_name))
+#     error_message = "collection_name must be 3-63 characters, start with letter, end with letter/number, lowercase only."
+#   }
+# }
 
 variable "alarm_thresholds" {
   description = "Thresholds personalizáveis para alarmes CloudWatch"
@@ -129,14 +129,14 @@ variable "alarm_thresholds" {
     lambda_throttle_count             = number
     
     # OpenSearch Cluster (Legacy)
-    opensearch_cpu_percent            = optional(number, 80)
-    opensearch_jvm_memory_percent     = optional(number, 85)
+    # opensearch_cpu_percent            = optional(number, 80)
+    # opensearch_jvm_memory_percent     = optional(number, 85)
     
-    # OpenSearch Serverless (Novo)
-    opensearch_ocu_utilization        = optional(number, 80)
+    # # OpenSearch Serverless (Novo)
+    # opensearch_ocu_utilization        = optional(number, 80)
     
-    # OpenSearch (Ambos)
-    opensearch_indexing_failures      = number
+    # # OpenSearch (Ambos)
+    # opensearch_indexing_failures      = number
   })
   
   default = {
@@ -155,15 +155,15 @@ variable "alarm_thresholds" {
     lambda_duration_p95_ms            = 5000     # 5 segundos
     lambda_throttle_count             = 10       # 10 throttles
     
-    # OpenSearch Cluster (Legacy)
-    opensearch_cpu_percent            = 80       # 80%
-    opensearch_jvm_memory_percent     = 85       # 85%
+    # # OpenSearch Cluster (Legacy)
+    # opensearch_cpu_percent            = 80       # 80%
+    # opensearch_jvm_memory_percent     = 85       # 85%
     
-    # OpenSearch Serverless (Novo)
-    opensearch_ocu_utilization        = 80       # 80%
+    # # OpenSearch Serverless (Novo)
+    # opensearch_ocu_utilization        = 80       # 80%
     
-    # OpenSearch (Ambos)
-    opensearch_indexing_failures      = 5        # 5 falhas
+    # # OpenSearch (Ambos)
+    # opensearch_indexing_failures      = 5        # 5 falhas
   }
 
   validation {
@@ -186,18 +186,83 @@ variable "alarm_thresholds" {
     error_message = "lambda_duration_p95_ms must be between 0 and 900000 (15 minutes)."
   }
 
-  validation {
-    condition = var.alarm_thresholds.opensearch_cpu_percent >= 0 && var.alarm_thresholds.opensearch_cpu_percent <= 100
-    error_message = "opensearch_cpu_percent must be between 0 and 100."
-  }
+  # validation {
+  #   condition = var.alarm_thresholds.opensearch_cpu_percent >= 0 && var.alarm_thresholds.opensearch_cpu_percent <= 100
+  #   error_message = "opensearch_cpu_percent must be between 0 and 100."
+  # }
 
-  validation {
-    condition = var.alarm_thresholds.opensearch_jvm_memory_percent >= 0 && var.alarm_thresholds.opensearch_jvm_memory_percent <= 100
-    error_message = "opensearch_jvm_memory_percent must be between 0 and 100."
-  }
+  # validation {
+  #   condition = var.alarm_thresholds.opensearch_jvm_memory_percent >= 0 && var.alarm_thresholds.opensearch_jvm_memory_percent <= 100
+  #   error_message = "opensearch_jvm_memory_percent must be between 0 and 100."
+  # }
 
+  # validation {
+  #   condition = var.alarm_thresholds.opensearch_ocu_utilization >= 0 && var.alarm_thresholds.opensearch_ocu_utilization <= 100
+  #   error_message = "opensearch_ocu_utilization must be between 0 and 100."
+  # }
+}
+
+variable "flink_config" {
+  description = "Configuração da aplicação Flink SQL (KDA V2)"
+  type = object({
+    parallelism = number
+    auto_start  = bool
+  })
+  
+  default = {
+    parallelism = 1      # 4 KPUs (adequado para 50k-100k eventos/min)
+    auto_start  = false  # false em dev, true em prod (via CI/CD)
+  }
+  
   validation {
-    condition = var.alarm_thresholds.opensearch_ocu_utilization >= 0 && var.alarm_thresholds.opensearch_ocu_utilization <= 100
-    error_message = "opensearch_ocu_utilization must be between 0 and 100."
+    condition     = var.flink_config.parallelism >= 1 && var.flink_config.parallelism <= 32
+    error_message = "parallelism deve estar entre 1 e 32 KPUs."
+  }
+}
+
+variable "redshift_config" {
+  description = "Configuração do Redshift Serverless para data warehouse"
+  type = object({
+    admin_username       = string
+    admin_password       = string
+    base_capacity        = number
+    max_capacity         = number
+    backup_retention_days = number
+    log_retention_days   = number
+  })
+  
+  default = {
+    admin_username       = "admin"
+    admin_password       = "ChangeMe123!@#"  # Use AWS Secrets Manager!
+    base_capacity        = 32                # RPUs (32 = minimum)
+    max_capacity         = 256               # Auto-scaling max
+    backup_retention_days = 7
+    log_retention_days   = 7
+  }
+  
+  validation {
+    condition     = length(var.redshift_config.admin_password) >= 8
+    error_message = "admin_password deve ter no mínimo 8 caracteres."
+  }
+  
+  validation {
+    condition     = var.redshift_config.base_capacity >= 32
+    error_message = "base_capacity deve ser no mínimo 32 RPUs."
+  }
+  
+  validation {
+    condition     = var.redshift_config.max_capacity >= var.redshift_config.base_capacity
+    error_message = "max_capacity deve ser >= base_capacity."
+  }
+}
+
+variable "sns_config" {
+  description = "Configuração do SNS Topic para notificações de alertas"
+  type = object({
+    alert_email_addresses = list(string)
+  })
+  
+  default = {
+    alert_email_addresses = []
   }
 }

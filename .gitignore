@@ -8,6 +8,7 @@ __pycache__/
 credentials.json 
 *layers/ 
 .stackspot*
+*.old
 
 *.exe
 # Terraform files

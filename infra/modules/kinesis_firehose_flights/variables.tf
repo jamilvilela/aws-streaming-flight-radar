@@ -55,22 +55,22 @@ variable "kinesis_stream_arn" {
 #   description = "Mapa com os nomes das tabelas Glue a serem criadas para armazenar o schema dos dados"
 # }
 
-variable "kms_firehose_arn" {
-  description = "ARN da chave KMS para criptografia do Kinesis Firehose"
-  type        = string
-}
+# variable "kms_firehose_arn" {
+#   description = "ARN da chave KMS para criptografia do Kinesis Firehose"
+#   type        = string
+# }
 
 # variable "opensearch_collection_arn" {
 #   description = "ARN da collection OpenSearch para onde o Firehose irá enviar os dados"
 #   type        = string  
 # }
 
-variable "opensearch_collection_endpoint" {
-  description = "Endpoint da collection OpenSearch para onde o Firehose irá enviar os dados"
-  type = string
-}
+# variable "opensearch_collection_endpoint" {
+#   description = "Endpoint da collection OpenSearch para onde o Firehose irá enviar os dados"
+#   type = string
+# }
 
-variable "opensearch_index_name" {
-  description = "Nome do index no OpenSearch onde os dados serão armazenados"
-  type        = string
-}
+# variable "opensearch_index_name" {
+#   description = "Nome do index no OpenSearch onde os dados serão armazenados"
+#   type        = string
+# }

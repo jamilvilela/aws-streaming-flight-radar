@@ -1,0 +1,7 @@
+arq event-driven data lake @AWS
+ingestion: Kinesis → Firehose → S3 raw
+process: Glue/Spark → Delta → Athena
+observability: CloudWatch + DataDog + OpenTel
++ diagrama ASCII
++ custo estimado por camada
+! foco: latência < 5min e2e

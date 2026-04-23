@@ -43,18 +43,18 @@ variable "firehose_s3_arn" {
   default     = ""
 }
 
-# Kinesis Firehose - OpenSearch
-variable "firehose_opensearch_name" {
-  description = "Nome do Firehose com destino OpenSearch"
-  type        = string
-  default     = ""
-}
+# # Kinesis Firehose - OpenSearch
+# variable "firehose_opensearch_name" {
+#   description = "Nome do Firehose com destino OpenSearch"
+#   type        = string
+#   default     = ""
+# }
 
-variable "firehose_opensearch_arn" {
-  description = "ARN do Firehose com destino OpenSearch"
-  type        = string
-  default     = ""
-}
+# variable "firehose_opensearch_arn" {
+#   description = "ARN do Firehose com destino OpenSearch"
+#   type        = string
+#   default     = ""
+# }
 
 # Lambda Functions
 variable "lambda_functions" {
@@ -66,43 +66,43 @@ variable "lambda_functions" {
   default = []
 }
 
-# =============================================================================
-# OPENSEARCH SERVERLESS (ATUALIZADO)
-# =============================================================================
-variable "opensearch_type" {
-  description = "Tipo: 'cluster' ou 'serverless'"
-  type        = string
-  default     = "serverless"
+# # =============================================================================
+# # OPENSEARCH SERVERLESS (ATUALIZADO)
+# # =============================================================================
+# variable "opensearch_type" {
+#   description = "Tipo: 'cluster' ou 'serverless'"
+#   type        = string
+#   default     = "serverless"
   
-  validation {
-    condition     = contains(["cluster", "serverless"], var.opensearch_type)
-    error_message = "opensearch_type must be either 'cluster' or 'serverless'."
-  }
-}
+#   validation {
+#     condition     = contains(["cluster", "serverless"], var.opensearch_type)
+#     error_message = "opensearch_type must be either 'cluster' or 'serverless'."
+#   }
+# }
 
-variable "opensearch_domain_name" {
-  description = "Nome do domínio OpenSearch (para cluster provisionado)"
-  type        = string
-  default     = ""
-}
+# variable "opensearch_domain_name" {
+#   description = "Nome do domínio OpenSearch (para cluster provisionado)"
+#   type        = string
+#   default     = ""
+# }
 
-variable "opensearch_domain_arn" {
-  description = "ARN do domínio OpenSearch (para cluster provisionado)"
-  type        = string
-  default     = ""
-}
+# variable "opensearch_domain_arn" {
+#   description = "ARN do domínio OpenSearch (para cluster provisionado)"
+#   type        = string
+#   default     = ""
+# }
 
-variable "opensearch_collection_name" {
-  description = "Nome da collection OpenSearch Serverless"
-  type        = string
-  default     = ""
-}
+# variable "opensearch_collection_name" {
+#   description = "Nome da collection OpenSearch Serverless"
+#   type        = string
+#   default     = ""
+# }
 
-variable "opensearch_collection_arn" {
-  description = "ARN da collection OpenSearch Serverless"
-  type        = string
-  default     = ""
-}
+# variable "opensearch_collection_arn" {
+#   description = "ARN da collection OpenSearch Serverless"
+#   type        = string
+#   default     = ""
+# }
 
 # S3 Bucket
 variable "s3_bucket_name" {
@@ -124,10 +124,10 @@ variable "alarm_thresholds" {
     lambda_error_percent              = number
     lambda_duration_p95_ms            = number
     lambda_throttle_count             = number
-    opensearch_ocu_utilization        = number  # ✅ Serverless
-    opensearch_cpu_percent            = number  # ✅ Cluster
-    opensearch_jvm_memory_percent     = number  # ✅ Cluster
-    opensearch_indexing_failures      = number
+    # opensearch_ocu_utilization        = number  # ✅ Serverless
+    # opensearch_cpu_percent            = number  # ✅ Cluster
+    # opensearch_jvm_memory_percent     = number  # ✅ Cluster
+    # opensearch_indexing_failures      = number
   })
   default = {
     kinesis_iterator_age_ms           = 60000
@@ -139,10 +139,10 @@ variable "alarm_thresholds" {
     lambda_error_percent              = 5
     lambda_duration_p95_ms            = 5000
     lambda_throttle_count             = 10
-    opensearch_ocu_utilization        = 80    # ✅ Serverless
-    opensearch_cpu_percent            = 80    # ✅ Cluster
-    opensearch_jvm_memory_percent     = 85    # ✅ Cluster
-    opensearch_indexing_failures      = 5
+    # opensearch_ocu_utilization        = 80    # ✅ Serverless
+    # opensearch_cpu_percent            = 80    # ✅ Cluster
+    # opensearch_jvm_memory_percent     = 85    # ✅ Cluster
+    # opensearch_indexing_failures      = 5
   }
 }
 
