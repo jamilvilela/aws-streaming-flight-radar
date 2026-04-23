@@ -38,7 +38,7 @@ resource "aws_s3_object" "flink_sql_zip" {
 # Aplicação Kinesis Data Analytics V2 (Apache Flink)
 resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   name                   = "${var.project_name}-kda-flights"
-  runtime_environment    = "FLINK-1_19"
+  runtime_environment    = "FLINK-1_20"
   service_execution_role = var.role_arn
   application_mode       = "STREAMING"
   start_application      = var.auto_start_application
@@ -52,7 +52,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
       code_content_type = "ZIPFILE"
 
       code_content {
-        s3_content_location {              # ← era text_content
+        s3_content_location {
           bucket_arn = "arn:aws:s3:::${var.s3_artifacts_bucket}"
           file_key   = aws_s3_object.flink_sql_zip.key
         }
@@ -125,16 +125,6 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   # depends_on = [
   #   aws_cloudwatch_log_stream.kda_flights_log_stream
   # ]
-}
-
-# Snapshot manual da aplicação para disaster recovery
-resource "aws_kinesisanalyticsv2_application_snapshot" "kda_flights_snapshot" {
-  application_name = aws_kinesisanalyticsv2_application.kda_flights.name
-  snapshot_name    = "${var.project_name}-kda-flights-backup-${formatdate("YYYY-MM-DD-hhmm", timestamp())}"
-
-  depends_on = [
-    aws_kinesisanalyticsv2_application.kda_flights
-  ]
 }
 
 # ============================================================================
