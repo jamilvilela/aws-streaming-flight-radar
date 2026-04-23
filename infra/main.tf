@@ -83,10 +83,10 @@ module "kinesis_firehose_flights" {
 module "kinesis_analytics_flights" {
   source = "./modules/kinesis_analytics_flights"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  region              = var.aws_region
-  s3_artifacts_bucket = local.buckets.workspace
+  project_name              = var.project_name
+  environment               = var.environment
+  region                    = var.aws_region
+  s3_artifacts_bucket       = local.buckets.workspace
 
   # IAM Role para Flink
   role_arn = module.iam.kda_execution_role_arn

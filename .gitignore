@@ -9,6 +9,7 @@ credentials.json
 *layers/ 
 .stackspot*
 *.old
+openrouter.txt
 
 *.exe
 # Terraform files
