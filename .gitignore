@@ -10,6 +10,8 @@ credentials.json
 .stackspot*
 *.old
 openrouter.txt
+mcp_config.json
+settings.json
 
 *.exe
 # Terraform files
@@ -19,6 +21,7 @@ openrouter.txt
 *.tfstate.*
 *.backup
 LICENSE.txt
+tfplan*
 
 # C extensions
 *.so
