@@ -56,7 +56,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
     # 3. 03_sinks_kinesis.sql - 4 Sinks de saída
     
     application_code_configuration {
-      code_content_type = "PLAINTEXT"
+      code_content_type = "ZIPFILE"
 
       code_content {
         s3_content_location {
@@ -101,6 +101,15 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
           AwsRegion = var.region
         }
       }
+
+      property_group {
+        property_group_id = "kinesis.analytics.flink.run.options"
+
+        property_map = {
+          python  = "app.py"
+          jarfile = "lib/flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar"
+        }
+      }
     }
 
     # Snapshots automáticos para recuperação de falhas
@@ -116,9 +125,9 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   }
 
   # Logs do CloudWatch
-  # cloudwatch_logging_options {
-  #   log_stream_arn = "${aws_cloudwatch_log_group.kda_flights_log_group.arn}:${aws_cloudwatch_log_stream.kda_flights_log_stream.name}"
-  # }
+  cloudwatch_logging_options {
+    log_stream_arn = aws_cloudwatch_log_stream.kda_flights_log_stream.arn
+  }
 
   tags = merge(
     var.tags,
@@ -129,9 +138,9 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
     }
   )
 
-  # depends_on = [
-  #   aws_cloudwatch_log_stream.kda_flights_log_stream
-  # ]
+  depends_on = [
+    aws_cloudwatch_log_stream.kda_flights_log_stream
+  ]
 }
 
 # ============================================================================

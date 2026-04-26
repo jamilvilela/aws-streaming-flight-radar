@@ -22,7 +22,7 @@
 set -e
 
 # Configuração
-PROJECT_NAME="flight-radar"
+PROJECT_NAME="flight-radar-stream"
 KDA_APP_NAME="${PROJECT_NAME}-kda-flights"
 AWS_REGION="us-east-1"
 FLINK_SQL_DIR="./app/flink-sql-application"
@@ -296,9 +296,12 @@ main() {
     local command="${1:-help}"
     
     case "${command}" in
-        start)
+        deploy)
             validate_sql
             create_kinesis_streams
+            start_application
+            ;;
+        start)
             start_application
             ;;
         stop)
