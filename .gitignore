@@ -17,8 +17,7 @@ settings.json
 # Terraform files
 .terraform/
 .terraform.lock.hcl
-# *.tfstate
-*.tfstate.*
+terraform.tfstate*
 *.backup
 LICENSE.txt
 tfplan*
