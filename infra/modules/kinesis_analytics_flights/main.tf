@@ -35,6 +35,13 @@ resource "aws_s3_object" "flink_sql_zip" {
   etag   = data.archive_file.flink_sql_zip.output_md5
 }
 
+# JAR do connector Kinesis - sobe para S3
+resource "aws_s3_object" "kinesis_connector_jar" {
+  bucket = var.s3_artifacts_bucket
+  key    = "lib/flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar"
+  source = "${path.root}/../app/flink-sql-application/lib/flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar"
+}
+
 # Aplicação Kinesis Data Analytics V2 (Apache Flink)
 resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   name                   = "${var.project_name}-kda-flights"
@@ -49,7 +56,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
     # 3. 03_sinks_kinesis.sql - 4 Sinks de saída
     
     application_code_configuration {
-      code_content_type = "ZIPFILE"
+      code_content_type = "PLAINTEXT"
 
       code_content {
         s3_content_location {
