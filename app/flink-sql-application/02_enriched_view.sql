@@ -23,10 +23,9 @@ SELECT
     position_source,
     
     -- Timestamps
-    TO_TIMESTAMP(time_position, 'yyyy-MM-dd''T''HH:mm:ss') 
-                                                AS time_position_ts,
-    TO_TIMESTAMP(last_contact, 'yyyy-MM-dd''T''HH:mm:ss')
-                                                AS last_contact_ts,
+    -- Usamos REPLACE para garantir que o 'T' do ISO8601 não quebre o parser do Flink
+    TO_TIMESTAMP(REPLACE(time_position, 'T', ' ')) AS time_position_ts,
+    TO_TIMESTAMP(REPLACE(last_contact, 'T', ' '))  AS last_contact_ts,
     event_time,
 
     -- Posição geográfica

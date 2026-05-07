@@ -11,7 +11,7 @@
 
 -- Source table: Kinesis Stream com dados brutos ADS-B
 CREATE TABLE state_vectors_source (
-    icao24              STRING NOT NULL,           -- Identificador único da aeronave (ICAO)
+    icao24              STRING,                    -- Identificador único da aeronave (ICAO)
     callsign            STRING,                    -- Callsign (ex: "TAP1234")
     origin_country      STRING,                    -- País de origem (ISO 2-letter code)
     time_position       STRING,                    -- ISO 8601 timestamp da posição
@@ -35,12 +35,12 @@ CREATE TABLE state_vectors_source (
     WATERMARK FOR event_time AS event_time - INTERVAL '30' SECOND
 ) WITH (
     'connector'                 = 'kinesis',
-    'stream'                    = 'flights-raw',
+    'stream.arn'                = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights',
     'aws.region'                = 'us-east-1',
-    'scan.stream.initpos'       = 'LATEST',          -- Inicia a partir dos eventos mais recentes
+    'source.init.position'      = 'TRIM_HORIZON',
     'format'                    = 'json',
-    'json.ignore-parse-errors'  = 'true',            -- Ignora JSON malformado
-    'json.fail-on-missing-field'= 'false'            -- Permite campos faltantes (nulls)
+    'json.ignore-parse-errors'  = 'true',
+    'json.fail-on-missing-field'= 'false'
 );
 
 -- =============================================================================

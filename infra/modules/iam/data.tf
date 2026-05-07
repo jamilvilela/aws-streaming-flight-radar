@@ -145,6 +145,7 @@ data "aws_iam_policy_document" "kda_policy" {
     effect = "Allow"
     actions = [
       "kinesis:DescribeStream",
+      "kinesis:DescribeStreamSummary",
       "kinesis:GetRecords",
       "kinesis:GetShardIterator",
       "kinesis:ListRecords",

@@ -124,7 +124,12 @@ start_application() {
             --application-name "${KDA_APP_NAME}" \
             --region "${AWS_REGION}" \
             --query 'ApplicationDetail.ApplicationStatus' \
-            --output text)
+            --output text 2>/dev/null || echo "ERROR")
+        
+        if [ -z "${current_status}" ] || [ "${current_status}" == "ERROR" ]; then
+            log_error "Erro ao buscar status"
+            exit 1
+        fi
         
         if [ "${current_status}" == "RUNNING" ]; then
             log_success "Aplicação iniciada com sucesso!"
@@ -203,26 +208,13 @@ show_logs() {
 # ============================================================================
 
 test_with_sample_data() {
+    log_info "Aguardando 30s para o Flink iniciar a leitura (modo LATEST)..."
+    sleep 30
+
     log_info "Enviando dados de teste para Kinesis..."
     
-    local test_data='{
-        "icao24": "a02345",
-        "callsign": "TAP1234",
-        "origin_country": "PT",
-        "time_position": "2026-04-19T14:30:45",
-        "last_contact": "2026-04-19T14:30:45",
-        "longitude": -9.1352,
-        "latitude": 38.6814,
-        "altitude": 3500,
-        "on_ground": false,
-        "velocity": 250.5,
-        "heading": 270,
-        "vertical_rate": 5.2,
-        "geo_altitude": 3600,
-        "squawk": "4521",
-        "spi": false,
-        "position_source": 0
-    }'
+    local current_time=$(date -u +"%Y-%m-%dT%H:%M:%S")
+    local test_data='{"icao24": "test12", "callsign": "TST123  ", "origin_country": "Brazil", "time_position": "'${current_time}'", "last_contact": "'${current_time}'", "longitude": -46.65, "latitude": -23.55, "altitude": 10000.0, "on_ground": false, "velocity": 250.0, "heading": 90.0, "vertical_rate": 0.0, "geo_altitude": 10000.0, "squawk": "1234", "spi": false, "position_source": 0}'
     
     # Enviar 5 eventos de teste
     for i in {1..5}; do
@@ -231,6 +223,7 @@ test_with_sample_data() {
             --data "${test_data}" \
             --partition-key "test-partition" \
             --region "${AWS_REGION}" \
+            --cli-binary-format raw-in-base64-out \
             > /dev/null
         log_success "Evento de teste ${i}/5 enviado"
         sleep 1
@@ -239,18 +232,24 @@ test_with_sample_data() {
     log_info "Aguardando processamento (15 segundos)..."
     sleep 15
     
-    log_info "Verificando saída do Sink D (enriched-raw)..."
-    aws kinesis get-records \
-        --shard-iterator $(aws kinesis get-shard-iterator \
-            --stream-name "${PROJECT_NAME}-flights-enriched-raw" \
-            --shard-id shardId-000000000000 \
-            --shard-iterator-type LATEST \
+    log_info "Verificando saída do Sink (flights-rt)..."
+    local shard_id=$(aws kinesis list-shards --stream-name "${PROJECT_NAME}-flights-rt" --region "${AWS_REGION}" --query 'Shards[0].ShardId' --output text)
+    
+    if [ "${shard_id}" != "None" ]; then
+        aws kinesis get-records \
+            --shard-iterator $(aws kinesis get-shard-iterator \
+                --stream-name "${PROJECT_NAME}-flights-rt" \
+                --shard-id "${shard_id}" \
+                --shard-iterator-type TRIM_HORIZON \
+                --region "${AWS_REGION}" \
+                --query 'ShardIterator' \
+                --output text) \
             --region "${AWS_REGION}" \
-            --query 'ShardIterator' \
-            --output text) \
-        --region "${AWS_REGION}" \
-        --query 'Records[*].Data' \
-        --output text | base64 -d | jq '.' || log_warning "Nenhum dado na saída ainda"
+            --query 'Records[*].Data' \
+            --output text | base64 -d 2>/dev/null | jq '.' || log_warning "Nenhum dado processado encontrado nos últimos segundos."
+    else
+        log_error "Não foi possível encontrar shards para o stream ${PROJECT_NAME}-flights-rt"
+    fi
 }
 
 # ============================================================================

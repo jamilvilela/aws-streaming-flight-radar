@@ -54,7 +54,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
     # 1. 01_source.sql - TABLE SOURCE (Kinesis input)
     # 2. 02_enriched_view.sql - VIEW com transformações
     # 3. 03_sinks_kinesis.sql - 4 Sinks de saída
-    
+
     application_code_configuration {
       code_content_type = "ZIPFILE"
 
@@ -70,10 +70,10 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
     flink_application_configuration {
       # Checkpointing para garantir processamento exatamente uma vez
       checkpoint_configuration {
-        configuration_type             = "CUSTOM"
-        checkpointing_enabled          = true
-        checkpoint_interval            = 60000  # 60 segundos
-        min_pause_between_checkpoints  = 5000   # 5 segundos
+        configuration_type            = "CUSTOM"
+        checkpointing_enabled         = true
+        checkpoint_interval           = 60000 # 60 segundos
+        min_pause_between_checkpoints = 5000  # 5 segundos
       }
 
       # Monitoramento
@@ -85,10 +85,10 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
 
       # Configuração de paralelismo
       parallelism_configuration {
-        configuration_type       = "CUSTOM"
-        parallelism              = var.input_parallelism
-        parallelism_per_kpu      = 2
-        auto_scaling_enabled     = true
+        configuration_type   = "CUSTOM"
+        parallelism          = var.input_parallelism
+        parallelism_per_kpu  = 2
+        auto_scaling_enabled = true
       }
     }
 
@@ -107,14 +107,13 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
 
         property_map = {
           python  = "app.py"
-          jarfile = "lib/flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar"
         }
       }
     }
 
     # Snapshots automáticos para recuperação de falhas
     application_snapshot_configuration {
-      snapshots_enabled = true
+      snapshots_enabled = false
     }
 
     # Configuração de VPC (opcional)

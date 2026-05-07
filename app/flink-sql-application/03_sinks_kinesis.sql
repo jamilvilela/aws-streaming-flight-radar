@@ -24,11 +24,10 @@ CREATE TABLE kinesis_positions_1min (
     on_ground_count     BIGINT,
     PRIMARY KEY (window_start, origin_country, flight_phase) NOT ENFORCED
 ) WITH (
-    'connector'         = 'kinesis',
-    'stream'            = 'flights-positions-1min',
-    'aws.region'        = 'us-east-1',
-    'format'            = 'json',
-    'sink.parallelism'  = '4'
+    'connector'                = 'kinesis',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'aws.region'               = 'us-east-1',
+    'format'                   = 'json'
 );
 
 INSERT INTO kinesis_positions_1min
@@ -75,11 +74,10 @@ CREATE TABLE kinesis_altitude_bands (
     velocity_stddev     DOUBLE,
     PRIMARY KEY (window_start, flight_phase, vertical_trend) NOT ENFORCED
 ) WITH (
-    'connector'         = 'kinesis',
-    'stream'            = 'flights-altitude-bands',
-    'aws.region'        = 'us-east-1',
-    'format'            = 'json',
-    'sink.parallelism'  = '2'
+    'connector'                = 'kinesis',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'aws.region'               = 'us-east-1',
+    'format'                   = 'json'
 );
 
 INSERT INTO kinesis_altitude_bands
@@ -91,7 +89,7 @@ SELECT
     MIN(altitude_ft)                               AS min_altitude_ft,
     MAX(altitude_ft)                               AS max_altitude_ft,
     AVG(altitude_ft)                               AS avg_altitude_ft,
-    STDDEV(velocity_kts)                           AS velocity_stddev
+    STDDEV_SAMP(velocity_kts)                           AS velocity_stddev
 FROM enriched_flights
 WHERE on_ground = FALSE
   AND altitude_ft IS NOT NULL
@@ -132,11 +130,10 @@ CREATE TABLE kinesis_phase_changes (
     latitude            DOUBLE,
     PRIMARY KEY (window_start, icao24) NOT ENFORCED
 ) WITH (
-    'connector'         = 'kinesis',
-    'stream'            = 'flights-phase-changes',
-    'aws.region'        = 'us-east-1',
-    'format'            = 'json',
-    'sink.parallelism'  = '1'  -- Baixa taxa de eventos
+    'connector'                = 'kinesis',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'aws.region'               = 'us-east-1',
+    'format'                   = 'json'
 );
 
 INSERT INTO kinesis_phase_changes
@@ -155,7 +152,19 @@ SELECT
 FROM enriched_flights
 WHERE vertical_trend IN ('climbing', 'descending')
   AND ABS(vrate_fpm) > 500      -- Filtra variações insignificantes (< 500 fpm)
-  AND on_ground = FALSE;
+  AND on_ground = FALSE
+GROUP BY
+    TUMBLE(event_time, INTERVAL '30' SECOND),
+    icao24,
+    callsign,
+    origin_country,
+    vertical_trend,
+    vrate_fpm,
+    altitude_ft,
+    speed_category,
+    heading,
+    longitude,
+    latitude;
 
 -- ============================================================================
 -- SINK D - Passthrough Enriquecido (Todas as Aeronaves)
@@ -191,11 +200,10 @@ CREATE TABLE kinesis_enriched_raw (
     spi                 BOOLEAN,
     PRIMARY KEY (icao24) NOT ENFORCED
 ) WITH (
-    'connector'         = 'kinesis',
-    'stream'            = 'flights-enriched-raw',
-    'aws.region'        = 'us-east-1',
-    'format'            = 'json',
-    'sink.parallelism'  = '8'  -- Alta taxa de dados
+    'connector'                = 'kinesis',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'aws.region'               = 'us-east-1',
+    'format'                   = 'json'
 );
 
 INSERT INTO kinesis_enriched_raw
