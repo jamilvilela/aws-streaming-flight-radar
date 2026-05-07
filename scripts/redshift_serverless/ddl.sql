@@ -52,9 +52,6 @@ CREATE TABLE IF NOT EXISTS flight_radar.state_vectors (
     -- Vertical rate (converted to feet/min in Flink)
     vertical_rate_fpm DOUBLE PRECISION,
     
-    -- Sensors
-    sensors VARCHAR(8192),
-    
     -- Enrichment: Flight phase classification
     -- Values: CRUISE, CLIMB, DESCENT, LEVEL, GROUND, UNKNOWN
     flight_phase VARCHAR(16) NOT NULL,
