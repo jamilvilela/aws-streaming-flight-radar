@@ -56,7 +56,6 @@ class StateVector:
     velocity: Optional[float] = None  # in m/s
     heading: Optional[float] = None  # in degrees
     vertical_rate: Optional[float] = None  # in m/s
-    sensors: Optional[List[int]] = None
     geo_altitude: Optional[float] = None  # in meters
     squawk: Optional[str] = None
     spi: Optional[bool] = None  # Special purpose indicator
@@ -80,8 +79,7 @@ class StateVector:
             velocity=float(data[9]) if data[9] is not None else None,
             heading=float(data[10]) if data[10] is not None else None,
             vertical_rate=float(data[11]) if data[11] is not None else None,
-            sensors=[int(s) for s in data[12]] if data[12] else None,
-            geo_altitude=float(data[13]) if data[13] is not None else None,
+            geo_altitude=float(data[12]) if data[12] is not None else None,
             squawk=str(data[14]) if data[14] is not None else None,
             spi=bool(data[15]) if data[15] is not None else None,
             position_source=PositionSource(data[16]) if data[16] is not None else None

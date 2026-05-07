@@ -227,6 +227,69 @@ SELECT
     spi
 FROM enriched_flights;
 
+-- ============================================================================
+-- SINK S3 - Data Lake (Backup Persistente)
+-- ============================================================================
+--
+-- Gravação direta para S3 em formato JSON linhas
+-- Caso de uso:
+--   - Backup permanente dos dados enriquecidos
+--   - Data Lake para analytics com Athena
+--   - Restore para Redshift após recriação
+--
+-- Destino: S3 Bucket "flight-radar-raw-{account}/flights-enriched/"
+-- Formato: JSON Lines com partição por hora
+
+CREATE TABLE s3_enriched (
+    event_time          TIMESTAMP(3),
+    icao24              STRING,
+    callsign            STRING,
+    origin_country      STRING,
+    longitude           DOUBLE,
+    latitude            DOUBLE,
+    altitude_ft         DOUBLE,
+    geo_altitude_ft     DOUBLE,
+    velocity_kts        DOUBLE,
+    heading             DOUBLE,
+    vrate_fpm           DOUBLE,
+    flight_phase        STRING,
+    vertical_trend      STRING,
+    speed_category      STRING,
+    on_ground           BOOLEAN,
+    squawk              STRING,
+    spi                 BOOLEAN,
+    partition_date      STRING
+) PARTITIONED BY (dt) WITH (
+    'connector'                   = 'filesystem',
+    'path'                      = 's3://lakehouse-raw-331504768406/flights-enriched/',
+    'format'                    = 'json',
+    'json.encoding'              = 'UTF-8',
+    'sink.partition-commit.delay' = '3600000',
+    'sink.partition-commit.watermark-threshold' = '3600000'
+);
+
+INSERT INTO s3_enriched
+SELECT
+    event_time,
+    icao24,
+    callsign,
+    origin_country,
+    longitude,
+    latitude,
+    altitude_ft,
+    geo_altitude_ft,
+    velocity_kts,
+    heading,
+    vrate_fpm,
+    flight_phase,
+    vertical_trend,
+    speed_category,
+    on_ground,
+    squawk,
+    spi,
+    DATE_FORMAT(event_time, 'yyyy-MM-dd-HH')
+FROM enriched_flights;
+
 -- =============================================================================
 -- RESUMO DOS SINKS
 -- =============================================================================
@@ -250,5 +313,10 @@ FROM enriched_flights;
 --   Rate: 1 evento por aeronave por ~10s (conforme atualização ADS-B)
 --   Tamanho: ALTO (~50k-100k eventos/min globalmente)
 --   Uso: histórico completo, data science, análise ad-hoc
+--
+-- Sink S3 (flights-enriched-s3):
+--   Rate: 1 evento por aeronave a cada 5 min (batch)
+--   Tamanho: médio (~10k eventos/min)
+--   Uso: Data Lake持久化, backup para destruir Redshift
 --
 -- =============================================================================

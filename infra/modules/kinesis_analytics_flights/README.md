@@ -84,7 +84,6 @@ A aplicação Flink espera eventos JSON com a seguinte estrutura:
   "velocity": "double",
   "track": "double",
   "vertical_rate": "double",
-  "sensors": "string",
   "geo_altitude": "double",
   "squawk": "string",
   "spi": "boolean",
