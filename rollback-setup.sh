@@ -40,13 +40,13 @@ echo "⚠️  AVISO: Você está prestes a DESTRUIR todos os recursos AWS!"
 echo "   Projeto: flight-radar-stream"
 echo "   Ambiente: production"
 echo ""
-echo "Digite 'sim' para confirmar o rollback (destruição):"
-read confirmation
+# echo "Digite 'sim' para confirmar o rollback (destruição):"
+# read confirmation
 
-if [ "$confirmation" != "sim" ]; then
-    echo "❌ Rollback cancelado!"
-    exit 0
-fi
+# if [ "$confirmation" != "sim" ]; then
+#     echo "❌ Rollback cancelado!"
+#     exit 0
+# fi
 
 echo ""
 echo "🔥 Iniciando destruição dos recursos..."

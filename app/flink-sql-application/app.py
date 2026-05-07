@@ -1,50 +1,90 @@
-import os
 import sys
-from pyflink.table import EnvironmentSettings, TableEnvironment
+import os
+import traceback
+
+def log(msg):
+    print(f"DEBUG_FLINK: {msg}", flush=True)
+
+log("Starting Python process...")
+
+try:
+    from pyflink.table import EnvironmentSettings, TableEnvironment
+    log("PyFlink imports successful.")
+except Exception as e:
+    log(f"FATAL ERROR DURING IMPORTS: {str(e)}")
+    traceback.print_exc()
+    sys.exit(1)
+
+def get_java_exception_cause(e):
+    try:
+        if hasattr(e, 'java_exception'):
+            cause = e.java_exception.getCause()
+            while cause is not None and cause.getCause() is not None:
+                cause = cause.getCause()
+            return cause.getMessage() if cause else e.java_exception.getMessage()
+    except:
+        pass
+    return str(e)
 
 def main():
-    # Inicializa o Table Environment em modo Streaming
-    env_settings = EnvironmentSettings.in_streaming_mode()
-    table_env = TableEnvironment.create(env_settings)
-
-    # Lê as propriedades de runtime injetadas pela AWS (para pegar a região)
-    # Em um app mais robusto leríamos o application_properties.json,
-    # mas o SQL tem a região fixada (us-east-1) então podemos apenas rodar.
+    log("Entering main() function...")
     
-    # Ordem de execução: Source -> View -> Sinks
-    sql_files = [
-        "01_source.sql",
-        "02_enriched_view.sql",
-        "03_sinks_kinesis.sql"
-    ]
+    try:
+        env_settings = EnvironmentSettings.in_streaming_mode()
+        table_env = TableEnvironment.create(env_settings)
+        
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        jar_path = os.path.join(base_dir, "lib", "flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar")
+        if os.path.exists(jar_path):
+            log(f"Found JAR: {jar_path}")
+            table_env.get_config().get_configuration().set_string("pipeline.jars", f"file://{jar_path}")
+        else:
+            log(f"WARNING: JAR not found at {jar_path}")
+        
+        sql_files = [
+            ("source", os.path.join(base_dir, "01_source.sql")),
+            ("view", os.path.join(base_dir, "02_enriched_view.sql")),
+            ("sinks", os.path.join(base_dir, "03_sinks_kinesis.sql"))
+        ]
 
-    print("[INFO] Iniciando PyFlink SQL Wrapper...")
-    
-    for file_path in sql_files:
-        print(f"[INFO] Lendo e executando: {file_path}")
-        try:
+        statement_set = table_env.create_statement_set()
+        has_inserts = False
+
+        for name, file_path in sql_files:
+            log(f"Reading SQL file: {name}")
             with open(file_path, "r", encoding="utf-8") as f:
                 sql_content = f.read()
             
-            # O SQL pode ter múltiplos statements separados por ponto e vírgula.
-            # O PyFlink 1.15+ suporta rodar SQL statements diretamente,
-            # mas table_env.execute_sql suporta um statement por vez.
-            statements = [s.strip() for s in sql_content.split(';') if s.strip()]
-            for statement in statements:
-                # Evita executar linhas de comentário vazias ou statements vazios
-                if statement and not statement.startswith('--'):
-                    # Retira blocos de comentários puramente antes do comando
-                    lines = [line for line in statement.split('\n') if not line.strip().startswith('--')]
-                    clean_statement = '\n'.join(lines).strip()
-                    if clean_statement:
-                        print(f"[INFO] Executando statement:\n{clean_statement[:100]}...")
-                        table_env.execute_sql(clean_statement)
-            
-        except Exception as e:
-            print(f"[ERROR] Falha ao processar {file_path}: {str(e)}")
-            sys.exit(1)
+            raw_statements = sql_content.split(';')
+            for raw_stmt in raw_statements:
+                lines = raw_stmt.split('\n')
+                clean_lines = [line for line in lines if not line.strip().startswith('--')]
+                clean_statement = '\n'.join(clean_lines).strip()
+                
+                if not clean_statement:
+                    continue
 
-    print("[INFO] Todos os statements SQL foram carregados. Aguardando streaming...")
+                if clean_statement.upper().startswith("INSERT"):
+                    log(f"Adding INSERT to StatementSet from {name}")
+                    statement_set.add_insert_sql(clean_statement)
+                    has_inserts = True
+                else:
+                    log(f"Executing DDL: {clean_statement[:50]}...")
+                    table_env.execute_sql(clean_statement)
+        
+        if has_inserts:
+            log("Submitting Flink Job...")
+            table_result = statement_set.execute()
+            log(f"Job submitted. ID: {table_result.get_job_client().get_job_id() if table_result.get_job_client() else 'N/A'}")
+        else:
+            log("No INSERT statements found.")
+                
+    except Exception as e:
+        log(f"FATAL ERROR DURING EXECUTION: {get_java_exception_cause(e)}")
+        traceback.print_exc()
+        sys.exit(1)
+
+    log("Python script finished successfully.")
 
 if __name__ == '__main__':
     main()
