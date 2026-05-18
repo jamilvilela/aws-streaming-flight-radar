@@ -43,7 +43,7 @@ class PositionSource(Enum):
 @dataclass
 class StateVector:
     """Represents a state vector from OpenSky."""
-    
+
     icao24: str
     callsign: Optional[str] = None
     origin_country: Optional[str] = None
@@ -60,6 +60,7 @@ class StateVector:
     squawk: Optional[str] = None
     spi: Optional[bool] = None  # Special purpose indicator
     position_source: Optional[PositionSource] = None
+    event_time: Optional[datetime] = None  # Timestamp when event was processed
     
     @classmethod
     def from_api_response(cls, data: List[Any]) -> 'StateVector':
@@ -82,7 +83,8 @@ class StateVector:
             geo_altitude=float(data[12]) if data[12] is not None else None,
             squawk=str(data[14]) if data[14] is not None else None,
             spi=bool(data[15]) if data[15] is not None else None,
-            position_source=PositionSource(data[16]) if data[16] is not None else None
+            position_source=PositionSource(data[16]) if data[16] is not None else None,
+            event_time=datetime.now()  # Adiciona timestamp atual quando o evento é processado
         )
     
     @property

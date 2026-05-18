@@ -25,7 +25,7 @@ CREATE TABLE kinesis_positions_1min (
     PRIMARY KEY (window_start, origin_country, flight_phase) NOT ENFORCED
 ) WITH (
     'connector'                = 'kinesis',
-    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-positions-1min',
     'aws.region'               = 'us-east-1',
     'format'                   = 'json'
 );
@@ -75,7 +75,7 @@ CREATE TABLE kinesis_altitude_bands (
     PRIMARY KEY (window_start, flight_phase, vertical_trend) NOT ENFORCED
 ) WITH (
     'connector'                = 'kinesis',
-    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-altitude-bands',
     'aws.region'               = 'us-east-1',
     'format'                   = 'json'
 );
@@ -131,7 +131,7 @@ CREATE TABLE kinesis_phase_changes (
     PRIMARY KEY (window_start, icao24) NOT ENFORCED
 ) WITH (
     'connector'                = 'kinesis',
-    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-phase-changes',
     'aws.region'               = 'us-east-1',
     'format'                   = 'json'
 );
@@ -201,7 +201,7 @@ CREATE TABLE kinesis_enriched_raw (
     PRIMARY KEY (icao24) NOT ENFORCED
 ) WITH (
     'connector'                = 'kinesis',
-    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-rt',
+    'stream.arn'               = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights-enriched-raw',
     'aws.region'               = 'us-east-1',
     'format'                   = 'json'
 );
@@ -258,14 +258,15 @@ CREATE TABLE s3_enriched (
     on_ground           BOOLEAN,
     squawk              STRING,
     spi                 BOOLEAN,
-    partition_date      STRING
+    dt                  STRING
 ) PARTITIONED BY (dt) WITH (
-    'connector'                   = 'filesystem',
-    'path'                      = 's3://lakehouse-raw-331504768406/flights-enriched/',
-    'format'                    = 'json',
-    'json.encoding'              = 'UTF-8',
-    'sink.partition-commit.delay' = '3600000',
-    'sink.partition-commit.watermark-threshold' = '3600000'
+    'connector'                                = 'filesystem',
+    'path'                                     = 's3://lakehouse-landing-331504768406/opensky/flights-enriched/',
+    'format'                                   = 'json',
+    'sink.partition-commit.delay'               = '1h',
+    'sink.partition-commit.policy.kind'         = 'success-file',
+    'sink.rolling-policy.rollover-interval'     = '60min',
+    'sink.rolling-policy.check-interval'        = '10min'
 );
 
 INSERT INTO s3_enriched
@@ -287,7 +288,7 @@ SELECT
     on_ground,
     squawk,
     spi,
-    DATE_FORMAT(event_time, 'yyyy-MM-dd-HH')
+    DATE_FORMAT(event_time, 'yyyy-MM-dd-HH') AS dt
 FROM enriched_flights;
 
 -- =============================================================================

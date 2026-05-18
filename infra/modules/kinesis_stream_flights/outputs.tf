@@ -1,39 +1,52 @@
+# ARNs dos streams - map completo
+output "streams_arn" {
+  description = "Map de ARNs de todos os streams Kinesis"
+  value       = { for k, v in aws_kinesis_stream.this : k => v.arn }
+}
 
+# Nomes dos streams - map completo
+output "streams_name" {
+  description = "Map de nomes de todos os streams Kinesis"
+  value       = { for k, v in aws_kinesis_stream.this : k => v.name }
+}
+
+# Output para backward compatibility - flights (input)
 output "kinesis_stream_flight_arn" {
-  description = "ARN do stream Kinesis para dados brutos"
-  value = aws_kinesis_stream.kinesis_stream_flights.arn
+  description = "ARN do stream Kinesis para dados brutos (flights)"
+  value       = try(aws_kinesis_stream.this["flights"].arn, null)
 }
 
 output "kinesis_stream_name" {
-  description = "Nome do stream Kinesis para dados brutos"
-  value = aws_kinesis_stream.kinesis_stream_flights.name
+  description = "Nome do stream Kinesis para dados brutos (flights)"
+  value       = try(aws_kinesis_stream.this["flights"].name, null)
 }
 
+# Output para backward compatibility - flights_rt (output)
 output "kinesis_stream_flights_rt_arn" {
-  description = "ARN do Kinesis Stream para dados em tempo real (Redshift)"
-  value       = aws_kinesis_stream.kinesis_stream_flights_rt.arn
+  description = "ARN do Kinesis Stream para dados em tempo real (flights_rt)"
+  value       = try(aws_kinesis_stream.this["flights_rt"].arn, null)
 }
 
 output "kinesis_stream_flights_rt_name" {
-  description = "Nome do Kinesis Stream para dados em tempo real (Redshift)"
-  value       = aws_kinesis_stream.kinesis_stream_flights_rt.name
+  description = "Nome do Kinesis Stream para dados em tempo real (flights_rt)"
+  value       = try(aws_kinesis_stream.this["flights_rt"].name, null)
 }
 
+# Informações completas dos streams
 output "kinesis_streams_info" {
-  description = "Informações completas do stream Kinesis"
+  description = "Informações completas de todos os streams Kinesis"
   value = {
-    name              = aws_kinesis_stream.kinesis_stream_flights.name
-    arn               = aws_kinesis_stream.kinesis_stream_flights.arn
-    retention_hours   = aws_kinesis_stream.kinesis_stream_flights.retention_period
-    mode              = aws_kinesis_stream.kinesis_stream_flights.stream_mode_details != null ? aws_kinesis_stream.kinesis_stream_flights.stream_mode_details[0].stream_mode : "ON_DEMAND"
+    for k, v in aws_kinesis_stream.this :
+    k => {
+      name            = v.name
+      arn             = v.arn
+      retention_hours = v.retention_period
+      mode            = v.stream_mode_details[0].stream_mode
+    }
   }
 }
 
-output "kinesis_stream_flights_endpoints" {
-  description = "Endpoint do stream para conexão"
-  value = {
-    stream_name = aws_kinesis_stream.kinesis_stream_flights.name
-    # Lambda enviará dados usando PutRecord/PutRecords
-    put_record_endpoint = "kinesis.${aws_kinesis_stream.kinesis_stream_flights.arn}"
-  }
+output "all_stream_arns" {
+  description = "Lista de todos os ARNs dos streams"
+  value       = values(aws_kinesis_stream.this)[*].arn
 }
