@@ -22,12 +22,12 @@ from typing import Dict, List, Any
 class FlinkTestConfig:
     """Configuração do teste"""
     
-    INPUT_STREAM = "flight-radar-flights"
+    INPUT_STREAM = "flight-radar-stream-flights"
     SINKS = {
-        "positions-1min": "flight-radar-flights-positions-1min",
-        "altitude-bands": "flight-radar-flights-altitude-bands",
-        "phase-changes": "flight-radar-flights-phase-changes",
-        "enriched-raw": "flight-radar-flights-enriched-raw",
+        "positions-1min": "flight-radar-stream-flights-positions-1min",
+        "altitude-bands": "flight-radar-stream-flights-altitude-bands",
+        "phase-changes": "flight-radar-stream-flights-phase-changes",
+        "enriched-raw": "flight-radar-stream-flights-enriched-raw",
     }
     
     # ADS-B test data (formato OpenSky API)
@@ -35,8 +35,8 @@ class FlinkTestConfig:
         "icao24": "a02345",
         "callsign": "TAP1234",
         "origin_country": "PT",
-        "time_position": int(time.time()),
-        "last_contact": int(time.time()),
+        "time_position": "2026-05-17T10:30:00",
+        "last_contact": "2026-05-17T10:30:00",
         "longitude": -9.1352,
         "latitude": 38.6814,
         "altitude": 3500,          # metros
@@ -47,7 +47,8 @@ class FlinkTestConfig:
         "geo_altitude": 3600,
         "squawk": "4521",
         "spi": False,
-        "position_source": 0
+        "position_source": 0,
+        "event_time": "2026-05-17T10:30:00"  # Campo adicional para matching com schema (ignorado, Kinesis usa metadata)
     }
 
 # ============================================================================
@@ -215,8 +216,10 @@ class FlinkPipelineTest:
         try:
             for i in range(num_events):
                 event = self.config.TEST_EVENT.copy()
-                event["time_position"] = int(time.time())
-                event["last_contact"] = int(time.time())
+                now = datetime.now().strftime("%Y-%m-%dT%H:%M:%S")
+                event["time_position"] = now
+                event["last_contact"] = now
+                event["event_time"] = now
                 # Variar altitude para testar transformações
                 event["altitude"] = 3500 + (i * 500)
                 event["icao24"] = f"a0234{i}"
@@ -363,7 +366,7 @@ def main():
     )
     parser.add_argument(
         "--stream-name",
-        default="flight-radar-flights",
+        default="flight-radar-stream-flights",
         help="Nome do input stream"
     )
     parser.add_argument(

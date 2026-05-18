@@ -32,11 +32,11 @@ module "kms" {
 # }
 
 module "kinesis_stream_flights" {
-  source         = "./modules/kinesis_stream_flights"
-  project_name   = var.project_name
-  kinesis_stream = var.kinesis_streams.flights
-  environment    = var.environment
-  tags           = var.tags
+  source          = "./modules/kinesis_stream_flights"
+  project_name    = var.project_name
+  kinesis_streams = var.kinesis_streams
+  environment     = var.environment
+  tags            = var.tags
 }
 
 module "lambda_flights_raw" {
@@ -83,10 +83,10 @@ module "kinesis_firehose_flights" {
 module "kinesis_analytics_flights" {
   source = "./modules/kinesis_analytics_flights"
 
-  project_name              = var.project_name
-  environment               = var.environment
-  region                    = var.aws_region
-  s3_artifacts_bucket       = local.buckets.workspace
+  project_name        = var.project_name
+  environment         = var.environment
+  region              = var.aws_region
+  s3_artifacts_bucket = local.buckets.workspace
 
   # IAM Role para Flink
   role_arn = module.iam.kda_execution_role_arn

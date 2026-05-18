@@ -1,50 +1,22 @@
-# ETAPA 2A: STREAMING EM TEMPO REAL - FLUXO PRINCIPAL (RAW)
-# Kinesis Stream para receber dados brutos de voos da OpenSky API
-# Alimenta:
-#   1. Kinesis Firehose → S3 Landing (armazenamento bruto)
-#   2. Flink (KDA) para processamento em tempo real
-#
-# Estrutura do fluxo:
-# OpenSky API → Lambda-ingestão → kinesis_stream_flights → Firehose + Flink
-resource "aws_kinesis_stream" "kinesis_stream_flights" {
-  name             = var.kinesis_stream.name
+# ============================================================================
+# KINESIS STREAMS - CRIAÇÃO DINÂMICA
+# ============================================================================
+# Cria múltiplos streams Kinesis a partir do map kinesis_streams
+# Cada stream pode ser: flights, flights_rt, outputs de Flink, etc.
+
+resource "aws_kinesis_stream" "this" {
+  for_each          = var.kinesis_streams
+  name             = each.value.name
   retention_period = var.retention_hours
 
   stream_mode_details {
-    stream_mode = var.kinesis_stream.mode  
+    stream_mode = each.value.mode
   }
 
   tags = merge(
     var.tags,
     {
-      Name        = var.kinesis_stream.name
-      StreamType  = "flights-raw"
-      Environment = var.environment
-    }
-  )
-}
-
-# ETAPA 2B: STREAMING EM TEMPO REAL - FLUXO ENRIQUECIDO (REDSHIFT)
-# Kinesis Stream para receber dados enriquecidos processados pelo Flink
-# Alimenta:
-#   1. Redshift Warehouse (data warehouse em tempo real)
-#   2. QuickSight para dashboards BI
-#
-# Estrutura do fluxo:
-# kinesis_stream_flights → Flink (KDA) → kinesis_stream_flights_rt → Redshift → QuickSight
-resource "aws_kinesis_stream" "kinesis_stream_flights_rt" {
-  name             = "${var.kinesis_stream.name}-rt"
-  retention_period = var.retention_hours
-
-  stream_mode_details {
-    stream_mode = var.kinesis_stream.mode  
-  }
-
-  tags = merge(
-    var.tags,
-    {
-      Name        = "${var.kinesis_stream.name}-rt" 
-      StreamType  = "flights-redshift-rt"
+      Name        = each.value.name
       Environment = var.environment
     }
   )
