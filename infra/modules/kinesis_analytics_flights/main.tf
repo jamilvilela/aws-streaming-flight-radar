@@ -68,12 +68,11 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
 
     # Configuração específica do Flink
     flink_application_configuration {
-      # Checkpointing para garantir processamento exatamente uma vez
+      # Checkpoint usando config padrão AWS (evita erros de validação)
+      # O bug "Partial recovery not supported" será tratado via
+      # restart-strategy=none nas propriedades de ambiente
       checkpoint_configuration {
-        configuration_type            = "CUSTOM"
-        checkpointing_enabled         = true
-        checkpoint_interval           = 60000 # 60 segundos
-        min_pause_between_checkpoints = 5000  # 5 segundos
+        configuration_type = "DEFAULT"
       }
 
       # Monitoramento
@@ -99,6 +98,11 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
 
         property_map = {
           AwsRegion = var.region
+
+          # CORREÇÃO: Desabilitar restart automático para evitar loop de failover
+          # O connector Kinesis tem bug de "partial recovery" - com restart
+          # habilitado, a aplicação fica em loop constante de falha
+          "restart-strategy" = "none"
         }
       }
 
