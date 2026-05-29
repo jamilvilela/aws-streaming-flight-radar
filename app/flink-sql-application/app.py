@@ -32,6 +32,7 @@ def main():
     try:
         env_settings = EnvironmentSettings.in_streaming_mode()
         table_env = TableEnvironment.create(env_settings)
+        table_env.get_config().set("restart-strategy.type", "none")
         
         base_dir = os.path.dirname(os.path.abspath(__file__))
         jar_path = os.path.join(base_dir, "lib", "flink-sql-connector-aws-kinesis-streams-5.0.0-1.20.jar")

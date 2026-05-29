@@ -29,15 +29,12 @@ CREATE TABLE state_vectors_source (
     position_source     INT,                       -- Fonte de posição (0=ADS-B, 1=surface, 2=radar, etc)
     
     -- Metadados Kinesis
-    event_time          TIMESTAMP(3) METADATA FROM 'timestamp',  -- Timestamp do evento Kinesis
-    
-    -- Watermark: tolera 30s de atraso para eventos fora de ordem
-    WATERMARK FOR event_time AS event_time - INTERVAL '30' SECOND
+    event_time AS PROCTIME()
 ) WITH (
     'connector'                 = 'kinesis',
     'stream.arn'                = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights',
     'aws.region'                = 'us-east-1',
-    'source.init.position'      = 'TRIM_HORIZON',
+    'source.init.position'      = 'LATEST',
     'format'                    = 'json',
     'json.ignore-parse-errors'  = 'true',
     'json.fail-on-missing-field'= 'false'

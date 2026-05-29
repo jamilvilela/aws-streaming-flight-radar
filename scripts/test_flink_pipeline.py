@@ -16,6 +16,16 @@ from datetime import datetime
 from typing import Dict, List, Any
 
 # ============================================================================
+# USO
+# ============================================================================
+#
+# python scripts/test_flink_pipeline.py status     # Ver status da aplicação
+# python scripts/test_flink_pipeline.py start     # Iniciar aplicação Flink
+# python scripts/test_flink_pipeline.py stop      # Parar aplicação Flink
+# python scripts/test_flink_pipeline.py restart   # Reiniciar aplicação Flink
+# python scripts/test_flink_pipeline.py test      # Executar teste do pipeline
+#
+# ============================================================================
 # CONFIGURAÇÃO
 # ============================================================================
 
@@ -64,20 +74,129 @@ class Colors:
     END = '\033[0m'      # Reset
 
 def log_ok(msg: str):
-    """Log sucesso"""
-    print(f"{Colors.OK}✓ {msg}{Colors.END}")
+    """Log success"""
+    print(f"{Colors.OK}[OK] {msg}{Colors.END}")
 
 def log_fail(msg: str):
-    """Log erro"""
-    print(f"{Colors.FAIL}✗ {msg}{Colors.END}")
+    """Log error"""
+    print(f"{Colors.FAIL}[FAIL] {msg}{Colors.END}")
 
 def log_warn(msg: str):
-    """Log aviso"""
+    """Log warning"""
     print(f"{Colors.WARN}! {msg}{Colors.END}")
 
 def log_info(msg: str):
     """Log info"""
-    print(f"{Colors.INFO}ℹ {msg}{Colors.END}")
+    print(f"{Colors.INFO}i {msg}{Colors.END}")
+
+# ============================================================================
+# FLINK UTILS
+# ============================================================================
+
+class FlinkHelper:
+    """Utilitários para gerenciar aplicação Flink (Kinesis Analytics)"""
+    
+    APP_NAME = "flight-radar-stream-kda-flights"
+    
+    def __init__(self, region: str = "us-east-1"):
+        self.kinesis_analytics = boto3.client("kinesisanalyticsv2", region_name=region)
+        self.region = region
+    
+    def get_status(self) -> str:
+        """Retorna status atual da aplicação"""
+        try:
+            response = self.kinesis_analytics.describe_application(
+                ApplicationName=self.APP_NAME
+            )
+            return response["ApplicationDetail"]["ApplicationStatus"]
+        except Exception as e:
+            log_warn(f"Erro ao buscar status: {e}")
+            return "UNKNOWN"
+    
+    def start(self) -> bool:
+        """Inicia a aplicação Flink"""
+        status = self.get_status()
+        
+        if status == "RUNNING":
+            log_warn(f"Aplicação já está em execução")
+            return True
+        
+        if status == "STOPPING":
+            log_warn("Aplicação está parando, aguarde...")
+            return False
+        
+        log_info(f"Iniciando aplicação {self.APP_NAME}...")
+        
+        try:
+            self.kinesis_analytics.start_application(
+                ApplicationName=self.APP_NAME,
+                RunConfiguration={
+                    "ApplicationRestoreConfiguration": {
+                        "ApplicationRestoreType": "SKIP_RESTORE_FROM_SNAPSHOT"
+                    }
+                }
+            )
+            
+            # Aguardar iniciar
+            for _ in range(30):
+                status = self.get_status()
+                if status == "RUNNING":
+                    log_ok("Aplicação iniciada com sucesso")
+                    return True
+                time.sleep(2)
+            
+            log_fail("Timeout ao iniciar aplicação")
+            return False
+            
+        except Exception as e:
+            log_fail(f"Erro ao iniciar: {e}")
+            return False
+    
+    def stop(self) -> bool:
+        """Para a aplicação Flink"""
+        status = self.get_status()
+        
+        if status == "STOPPED":
+            log_warn("Aplicação já está parada")
+            return True
+        
+        if status == "STARTING":
+            log_warn("Aplicação está iniciando, aguarde...")
+            return False
+        
+        log_info(f"Parando aplicação {self.APP_NAME}...")
+        
+        try:
+            self.kinesis_analytics.stop_application(
+                ApplicationName=self.APP_NAME
+            )
+            
+            # Aguardar parar
+            for _ in range(30):
+                status = self.get_status()
+                if status == "STOPPED":
+                    log_ok("Aplicação parada com sucesso")
+                    return True
+                time.sleep(2)
+            
+            log_fail("Timeout ao parar aplicação")
+            return False
+            
+        except Exception as e:
+            log_fail(f"Erro ao parar: {e}")
+            return False
+    
+    def restart(self) -> bool:
+        """Reinicia a aplicação (stop + start)"""
+        log_info("Reiniciando aplicação...")
+        
+        if not self.stop():
+            log_fail("Falha ao parar aplicação")
+            return False
+        
+        time.sleep(5)
+        return self.start()
+
 
 # ============================================================================
 # KINESIS UTILS
@@ -159,9 +278,10 @@ class FlinkPipelineTest:
     
     def run_all_tests(self, num_events: int = 5) -> bool:
         """Executa todos os testes"""
-        print("\n" + "="*70)
-        print("FLINK SQL PIPELINE TEST")
-        print("="*70 + "\n")
+        print("\n" + "="*2)
+        print("AWS FLINK SQL PIPELINE TEST")
+        print("Datetime: " + datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+        print("="*2 + "\n")
         
         all_passed = True
         
@@ -328,9 +448,9 @@ class FlinkPipelineTest:
     
     def _print_summary(self, passed: bool):
         """Imprime resumo dos testes"""
-        print("\n" + "="*70)
+        print("\n" + "="*2)
         print("RESUMO DOS TESTES")
-        print("="*70)
+        print("="*2)
         
         print("\nResultados por Sink:")
         for sink_name, count in self.results.items():
@@ -343,12 +463,12 @@ class FlinkPipelineTest:
             
             print(f"  {status} {sink_name}: {count} records")
         
-        print("\n" + "="*70)
+        print("\n" + "="*2)
         if passed:
             log_ok("Pipeline está funcionando corretamente!")
         else:
             log_fail("Pipeline tem problemas. Ver logs acima.")
-        print("="*70 + "\n")
+        print("="*2 + "\n")
 
 # ============================================================================
 # MAIN
@@ -378,12 +498,40 @@ def main():
     parser.add_argument(
         "--wait-seconds",
         type=int,
-        default=30,
+        default=55,
         help="Segundos para aguardar processamento"
+    )
+    parser.add_argument(
+        "command",
+        nargs="?",
+        choices=["start", "stop", "restart", "status", "test"],
+        default="test",
+        help="Comando: start/stop/restart/status/test (default: test)"
     )
     
     args = parser.parse_args()
     
+    flink = FlinkHelper(region=args.region)
+    
+    # Processar comandos de controle
+    if args.command == "start":
+        success = flink.start()
+        exit(0 if success else 1)
+    
+    elif args.command == "stop":
+        success = flink.stop()
+        exit(0 if success else 1)
+    
+    elif args.command == "restart":
+        success = flink.restart()
+        exit(0 if success else 1)
+    
+    elif args.command == "status":
+        status = flink.get_status()
+        print(f"Status: {status}")
+        exit(0)
+    
+    # Command == "test" ou default
     # Atualizar stream name se fornecido
     if args.stream_name:
         FlinkTestConfig.INPUT_STREAM = args.stream_name

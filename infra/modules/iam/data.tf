@@ -168,8 +168,8 @@ data "aws_iam_policy_document" "kda_policy" {
       "s3:DeleteObject"
     ]
     resources = [
-      "arn:aws:s3:::*",
-      "arn:aws:s3:::*/*"
+      "arn:aws:s3:::lakehouse-landing-331504768406",
+      "arn:aws:s3:::lakehouse-landing-331504768406/*"
     ]
   }
 
