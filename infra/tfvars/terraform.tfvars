@@ -43,18 +43,6 @@ lambda_functions = {
       Source = "opensky-api"
     }
   }
-  flights_enriched = {
-    name              = "flights_enriched"
-    handler           = "lambda_function.lambda_handler"
-    runtime           = "python3.12"
-    timeout           = 60
-    memory_size       = 512
-    ephemeral_storage = 512
-    tags = {
-      Type   = "enriched-ingest"
-      Source = "opensky-api"
-    }
-  }
 }
 
 ##############################################
@@ -64,47 +52,7 @@ kinesis_streams = {
     name = "flight-radar-stream-flights"
     mode ="ON_DEMAND"
   }
-  flights_rt = {
-    name = "flight-radar-stream-flights-rt"
-    mode ="ON_DEMAND"
-  }
-  flights_positions_1min = {
-    name = "flight-radar-stream-flights-positions-1min"
-    mode ="ON_DEMAND"
-  }
-  flights_altitude_bands = {
-    name = "flight-radar-stream-flights-altitude-bands"
-    mode ="ON_DEMAND"
-  }
-  flights_phase_changes = {
-    name = "flight-radar-stream-flights-phase-changes"
-    mode ="ON_DEMAND"
-  }
-  flights_enriched_raw = {
-    name = "flight-radar-stream-flights-enriched-raw"
-    mode ="ON_DEMAND"
-  }
 }
-
-opensearch = {
-  flights = {
-    collection_name = "flight-radar-flights"
-    collection_type = "TIMESERIES"
-    standby_replicas = "ENABLED"
-    vpc_id = ""  # público 
-  }
-}
-
-
-kinesis_firehose = {
-  flights = {
-    name                = "flight-radar-firehose-flights"
-    prefix              = "opensky/flights/"
-    error_output_prefix = "opensky/flights-error/"
-    # opensearch_index_name  = "flight-radar-flights"
-  }
-}
-
 
 ################################################
 tags = {

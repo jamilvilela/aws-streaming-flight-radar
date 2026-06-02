@@ -1,13 +1,6 @@
 # AWS Kinesis Data Analytics V2 (Apache Flink) para processar stream de voos
-# Recebe dados do kinesis_stream_flights e envia dados enriquecidos ao kinesis_stream_flights_rt (Redshift)
-#
-# DEPLOYMENT STRATEGY:
-# • DESENVOLVIMENTO LOCAL: use bash script (deploy_flink_sql.sh start)
-# • PRODUÇÃO: use Terraform com CI/CD (GitHub Actions)
-#
-# var.auto_start_application controla se Flink inicia automaticamente:
-#   - dev/staging: false (você controla manualmente)
-#   - prod: true (via CI/CD, sem intervenção manual)
+# Recebe dados do kinesis_stream_flights e envia dados enriquecidos ao S3 Landing
+
 
 # Log do CloudWatch para aplicação Flink
 resource "aws_cloudwatch_log_group" "kda_flights_log_group" {
@@ -53,7 +46,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   application_configuration {
     # 1. 01_source.sql - TABLE SOURCE (Kinesis input)
     # 2. 02_enriched_view.sql - VIEW com transformações
-    # 3. 03_sinks_kinesis.sql - 4 Sinks de saída
+    # 3. 03_sinks_s3.sql - 4 Sinks de saída
 
     application_code_configuration {
       code_content_type = "ZIPFILE"
@@ -146,34 +139,3 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   ]
 }
 
-# ============================================================================
-# DEPLOYMENT NOTES
-# ============================================================================
-#
-# DESENVOLVIMENTO LOCAL (sua máquina):
-# ─────────────────────────────────────────────────────────────────────────
-# 1. terraform apply -var="auto_start_application=false"
-#    → Cria aplicação KDA sem iniciar
-#
-# 2. bash app/flink-sql-application/deploy_flink_sql.sh start
-#    → Inicia via AWS CLI (seu script bash)
-#
-# 3. Testa dados e monitora
-#
-# 4. bash app/flink-sql-application/deploy_flink_sql.sh stop
-#    → Para quando terminar
-#
-#
-# PRODUÇÃO (via CI/CD):
-# ─────────────────────────────────────────────────────────────────────────
-# 1. Developer: git push main
-#
-# 2. GitHub Actions executa:
-#    terraform apply -var="auto_start_application=true"
-#    → Cria aplicação E inicia automaticamente
-#
-# 3. GitHub Actions testa data flow
-#
-# 4. Slack notifica resultado
-#
-# ============================================================================

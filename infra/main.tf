@@ -8,8 +8,6 @@ module "kms" {
 # SNS TOPIC FOR KDA ALERTS & NOTIFICATIONS
 # ============================================================================
 # Centralized notification hub for all pipeline alerts
-# Supports: Email, SQS, Lambda for custom processing
-# ============================================================================
 
 # module "sns" {
 #   source = "./modules/sns"
@@ -53,32 +51,6 @@ module "lambda_flights_raw" {
   ]
 }
 
-module "lambda_flights_enriched" {
-  source           = "./modules/lambda_flights_enriched"
-  project_name     = var.project_name
-  aws_region       = var.aws_region
-  lambda_config    = var.lambda_functions.flights_enriched
-  kinesis_firehose = var.kinesis_firehose.flights
-  role_arn         = module.iam.lambda_execution_role_arn
-  tags             = var.tags
-  depends_on = [
-    module.iam
-  ]
-}
-
-module "kinesis_firehose_flights" {
-  source       = "./modules/kinesis_firehose_flights"
-  project_name = var.project_name
-
-  kinesis_stream_arn = module.kinesis_stream_flights.kinesis_stream_flight_arn
-  kinesis_firehose   = var.kinesis_firehose.flights
-  bucket_arn         = data.aws_s3_bucket.landing.arn
-  role_arn           = module.iam.firehose_role_arn
-  # lambda_arn          = module.lambda_flights_enriched.lambda_arn
-
-  environment = var.environment
-  tags        = var.tags
-}
 
 module "kinesis_analytics_flights" {
   source = "./modules/kinesis_analytics_flights"
@@ -99,7 +71,7 @@ module "kinesis_analytics_flights" {
   # Lê os arquivos SQL do projeto
   sql_source_script   = file("${path.root}/../app/flink-sql-application/01_source.sql")
   sql_enriched_script = file("${path.root}/../app/flink-sql-application/02_enriched_view.sql")
-  sql_sinks_script    = file("${path.root}/../app/flink-sql-application/03_sinks_kinesis.sql")
+  sql_sinks_script    = file("${path.root}/../app/flink-sql-application/03_sinks_s3.sql")
 
   # Performance
   input_parallelism = var.flink_config.parallelism
@@ -123,16 +95,13 @@ module "kinesis_analytics_flights" {
 
   depends_on = [
     module.kinesis_stream_flights,
-    module.iam,
-    # module.sns
+    module.iam
   ]
 }
 
 # ============================================================================
 # REDSHIFT SERVERLESS DATA WAREHOUSE
 # ============================================================================
-# Receives enriched flight data from KDA Flink
-# Provides SQL analytics interface for QuickSight/BI tools
 # 
 # Tables created automatically:
 # • state_vectors (fact table): Raw enriched ADS-B data

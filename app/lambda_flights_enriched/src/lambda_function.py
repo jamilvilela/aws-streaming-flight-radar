@@ -1,5 +1,5 @@
 import logging
-from module.flights import TransformFlights
+from app.lambda_flights_enriched.src.module.flights import TransformFlights
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)

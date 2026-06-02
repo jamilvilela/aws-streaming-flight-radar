@@ -6,7 +6,7 @@ import boto3
 import requests
 from datetime import datetime
 from dotenv import load_dotenv
-from utils.models import StateVector
+from app.lambda_flights_raw.src.utils.models import StateVector
 
 load_dotenv()
 
