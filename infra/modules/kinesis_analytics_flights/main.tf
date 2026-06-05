@@ -39,7 +39,7 @@ resource "aws_s3_object" "kinesis_connector_jar" {
 resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   name                   = "${var.project_name}-kda-flights"
   runtime_environment    = "FLINK-1_20"
-  service_execution_role = var.role_arn
+  service_execution_role = aws_iam_role.kda_execution.arn
   application_mode       = "STREAMING"
   start_application      = var.auto_start_application
 

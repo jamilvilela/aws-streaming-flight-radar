@@ -15,11 +15,6 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "role_arn" {
-  description = "ARN da role IAM para Kinesis Data Analytics"
-  type        = string
-}
-
 variable "source_kinesis_stream_arn" {
   description = "ARN do Kinesis Stream de origem (kinesis_stream_flights)"
   type        = string

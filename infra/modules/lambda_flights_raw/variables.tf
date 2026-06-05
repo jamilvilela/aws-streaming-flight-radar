@@ -12,7 +12,6 @@ variable "lambda_config" {
 }
 variable "project_name" { type = string }
 variable "aws_region" { type = string }
-variable "role_arn" { type = string }
 variable "kinesis_stream" {
   description = "Configuração de um único stream Kinesis"
   type = object({

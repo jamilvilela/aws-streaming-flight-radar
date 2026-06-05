@@ -8,7 +8,7 @@ data "archive_file" "python_layer" {
 
 data "archive_file" "lambda_function" {
   type        = "zip"
-  source_dir  = "${path.root}/../app/src/lambda_flights_raw"
+  source_dir  = "${path.root}/../app/lambda_flights_raw/src"
   output_path = "${path.module}/.terraform/lambda_flights_raw.zip"
 }
 
