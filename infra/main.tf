@@ -44,9 +44,7 @@ module "lambda_flights_raw" {
   lambda_config  = var.lambda_functions.flights_raw
   kinesis_stream = var.kinesis_streams.flights
   tags           = var.tags
-  role_arn       = module.iam.lambda_execution_role_arn
   depends_on = [
-    module.iam,
     module.kinesis_stream_flights
   ]
 }
@@ -59,9 +57,6 @@ module "kinesis_analytics_flights" {
   environment         = var.environment
   region              = var.aws_region
   s3_artifacts_bucket = local.buckets.workspace
-
-  # IAM Role para Flink
-  role_arn = module.iam.kda_execution_role_arn
 
   # Kinesis Streams
   source_kinesis_stream_arn = module.kinesis_stream_flights.kinesis_stream_flight_arn
@@ -95,7 +90,6 @@ module "kinesis_analytics_flights" {
 
   depends_on = [
     module.kinesis_stream_flights,
-    module.iam
   ]
 }
 
@@ -197,12 +191,4 @@ module "kinesis_analytics_flights" {
 #     # module.redshift_serverless
 #   ]
 # }
-
-module "iam" {
-  source         = "./modules/iam"
-  project_name   = var.project_name
-  tags           = var.tags
-  bucket_arn     = data.aws_s3_bucket.landing.arn
-  dash_user_arns = local.dash_user_arns
-}
 

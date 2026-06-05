@@ -23,6 +23,11 @@ output "kda_log_group_arn" {
   value       = aws_cloudwatch_log_group.kda_flights_log_group.arn
 }
 
+output "iam_role_arn" {
+  description = "ARN da role IAM de execução do KDA (Kinesis Data Analytics)"
+  value       = aws_iam_role.kda_execution.arn
+}
+
 # output "kda_snapshot_arn" {
 #   description = "ARN do snapshot da aplicação Flink"
 #   value       = aws_kinesisanalyticsv2_application_snapshot.kda_flights_snapshot.arn

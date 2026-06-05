@@ -1,12 +1,12 @@
 variable "project_name" { type = string }
-variable "aws_region"   { type = string }
-variable "environment"  { type = string }
+variable "aws_region" { type = string }
+variable "environment" { type = string }
 
 variable "alerts_email" {
   description = "Email para receber notificações de alarme"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for email in var.alerts_email : can(regex("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$", email))
@@ -15,16 +15,16 @@ variable "alerts_email" {
   }
 }
 
-variable "tags"         { 
-  type = map(string) 
-  default = {} 
+variable "tags" {
+  type    = map(string)
+  default = {}
 }
 
 variable "kinesis_streams" {
   description = "Map of Kinesis stream names and their configurations"
   type = map(object({
     name = string
-    mode = string  # "ON_DEMAND" ou "PROVISIONED"
+    mode = string # "ON_DEMAND" ou "PROVISIONED"
   }))
 }
 
@@ -32,8 +32,8 @@ variable "kinesis_streams" {
 variable "kinesis_firehose" {
   description = "Configuração de um único firehose Kinesis"
   type = map(object({
-    name              = string
-    prefix             = string
+    name                = string
+    prefix              = string
     error_output_prefix = string
     # opensearch_index_name = string
   }))
@@ -41,14 +41,14 @@ variable "kinesis_firehose" {
 
 variable "lambda_functions" {
   description = "Map of Lambda function configurations"
-  type        = map(object({
-    name                          = string
-    handler                       = string
-    runtime                       = string
-    timeout                       = number
-    memory_size                   = number
-    ephemeral_storage             = number
-    tags                          = map(string)
+  type = map(object({
+    name              = string
+    handler           = string
+    runtime           = string
+    timeout           = number
+    memory_size       = number
+    ephemeral_storage = number
+    tags              = map(string)
   }))
 }
 
@@ -114,75 +114,75 @@ variable "alarm_thresholds" {
   description = "Thresholds personalizáveis para alarmes CloudWatch"
   type = object({
     # Kinesis Stream
-    kinesis_iterator_age_ms           = number
-    kinesis_no_records_minutes        = number
-    kinesis_write_throttle_percent    = number
-    kinesis_read_throttle_percent     = number
-    
+    kinesis_iterator_age_ms        = number
+    kinesis_no_records_minutes     = number
+    kinesis_write_throttle_percent = number
+    kinesis_read_throttle_percent  = number
+
     # Kinesis Firehose
     firehose_delivery_failure_percent = number
     firehose_incoming_records_low     = number
-    
+
     # Lambda Functions
-    lambda_error_percent              = number
-    lambda_duration_p95_ms            = number
-    lambda_throttle_count             = number
-    
+    lambda_error_percent   = number
+    lambda_duration_p95_ms = number
+    lambda_throttle_count  = number
+
     # OpenSearch Cluster (Legacy)
     # opensearch_cpu_percent            = optional(number, 80)
     # opensearch_jvm_memory_percent     = optional(number, 85)
-    
+
     # # OpenSearch Serverless (Novo)
     # opensearch_ocu_utilization        = optional(number, 80)
-    
+
     # # OpenSearch (Ambos)
     # opensearch_indexing_failures      = number
   })
-  
+
   default = {
     # Kinesis Stream
-    kinesis_iterator_age_ms           = 60000    # 60 segundos
-    kinesis_no_records_minutes        = 10       # 10 minutos
-    kinesis_write_throttle_percent    = 5        # 5%
-    kinesis_read_throttle_percent     = 5        # 5%
-    
+    kinesis_iterator_age_ms        = 60000 # 60 segundos
+    kinesis_no_records_minutes     = 10    # 10 minutos
+    kinesis_write_throttle_percent = 5     # 5%
+    kinesis_read_throttle_percent  = 5     # 5%
+
     # Kinesis Firehose
-    firehose_delivery_failure_percent = 10       # 10%
-    firehose_incoming_records_low     = 1        # 1 registro
-    
+    firehose_delivery_failure_percent = 10 # 10%
+    firehose_incoming_records_low     = 1  # 1 registro
+
     # Lambda Functions
-    lambda_error_percent              = 5        # 5%
-    lambda_duration_p95_ms            = 5000     # 5 segundos
-    lambda_throttle_count             = 10       # 10 throttles
-    
+    lambda_error_percent   = 5    # 5%
+    lambda_duration_p95_ms = 5000 # 5 segundos
+    lambda_throttle_count  = 10   # 10 throttles
+
     # # OpenSearch Cluster (Legacy)
     # opensearch_cpu_percent            = 80       # 80%
     # opensearch_jvm_memory_percent     = 85       # 85%
-    
+
     # # OpenSearch Serverless (Novo)
     # opensearch_ocu_utilization        = 80       # 80%
-    
+
     # # OpenSearch (Ambos)
     # opensearch_indexing_failures      = 5        # 5 falhas
   }
 
   validation {
-    condition = var.alarm_thresholds.kinesis_iterator_age_ms >= 0 && var.alarm_thresholds.kinesis_iterator_age_ms <= 3600000
+    condition     = var.alarm_thresholds.kinesis_iterator_age_ms >= 0 && var.alarm_thresholds.kinesis_iterator_age_ms <= 3600000
     error_message = "kinesis_iterator_age_ms must be between 0 and 3600000 (1 hour)."
   }
 
   validation {
-    condition = var.alarm_thresholds.kinesis_no_records_minutes >= 1 && var.alarm_thresholds.kinesis_no_records_minutes <= 60
+    condition     = var.alarm_thresholds.kinesis_no_records_minutes >= 1 && var.alarm_thresholds.kinesis_no_records_minutes <= 60
     error_message = "kinesis_no_records_minutes must be between 1 and 60."
   }
 
   validation {
-    condition = var.alarm_thresholds.firehose_delivery_failure_percent >= 0 && var.alarm_thresholds.firehose_delivery_failure_percent <= 100
+    condition     = var.alarm_thresholds.firehose_delivery_failure_percent >= 0 && var.alarm_thresholds.firehose_delivery_failure_percent <= 100
     error_message = "firehose_delivery_failure_percent must be between 0 and 100."
   }
 
   validation {
-    condition = var.alarm_thresholds.lambda_duration_p95_ms >= 0 && var.alarm_thresholds.lambda_duration_p95_ms <= 900000
+    condition     = var.alarm_thresholds.lambda_duration_p95_ms >= 0 && var.alarm_thresholds.lambda_duration_p95_ms <= 900000
     error_message = "lambda_duration_p95_ms must be between 0 and 900000 (15 minutes)."
   }
 
@@ -208,12 +208,12 @@ variable "flink_config" {
     parallelism = number
     auto_start  = bool
   })
-  
+
   default = {
-    parallelism = 1      # 4 KPUs (adequado para 50k-100k eventos/min)
-    auto_start  = false  # false em dev, true em prod (via CI/CD)
+    parallelism = 1     # 4 KPUs (adequado para 50k-100k eventos/min)
+    auto_start  = false # false em dev, true em prod (via CI/CD)
   }
-  
+
   validation {
     condition     = var.flink_config.parallelism >= 1 && var.flink_config.parallelism <= 32
     error_message = "parallelism deve estar entre 1 e 32 KPUs."
@@ -223,33 +223,33 @@ variable "flink_config" {
 variable "redshift_config" {
   description = "Configuração do Redshift Serverless para data warehouse"
   type = object({
-    admin_username       = string
-    admin_password       = string
-    base_capacity        = number
-    max_capacity         = number
+    admin_username        = string
+    admin_password        = string
+    base_capacity         = number
+    max_capacity          = number
     backup_retention_days = number
-    log_retention_days   = number
+    log_retention_days    = number
   })
-  
+
   default = {
-    admin_username       = "admin"
-    admin_password       = "ChangeMe123!@#"  # Use AWS Secrets Manager!
-    base_capacity        = 32                # RPUs (32 = minimum)
-    max_capacity         = 256               # Auto-scaling max
+    admin_username        = "admin"
+    admin_password        = "ChangeMe123!@#" # Use AWS Secrets Manager!
+    base_capacity         = 32               # RPUs (32 = minimum)
+    max_capacity          = 256              # Auto-scaling max
     backup_retention_days = 7
-    log_retention_days   = 7
+    log_retention_days    = 7
   }
-  
+
   validation {
     condition     = length(var.redshift_config.admin_password) >= 8
     error_message = "admin_password deve ter no mínimo 8 caracteres."
   }
-  
+
   validation {
     condition     = var.redshift_config.base_capacity >= 32
     error_message = "base_capacity deve ser no mínimo 32 RPUs."
   }
-  
+
   validation {
     condition     = var.redshift_config.max_capacity >= var.redshift_config.base_capacity
     error_message = "max_capacity deve ser >= base_capacity."
@@ -261,7 +261,7 @@ variable "sns_config" {
   type = object({
     alert_email_addresses = list(string)
   })
-  
+
   default = {
     alert_email_addresses = []
   }

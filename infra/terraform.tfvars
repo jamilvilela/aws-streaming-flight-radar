@@ -1,21 +1,21 @@
-aws_region   = "us-east-1"
-project_name = "flight-radar-stream"
-environment  = "production"
+aws_region         = "us-east-1"
+project_name       = "flight-radar-stream"
+environment        = "production"
 datalake_role_name = "role-datalake-analytics"
-alerts_email = ["jamilvilela@gmail.com"]
+alerts_email       = ["jamilvilela@gmail.com"]
 
 buckets = {
   workspace = "lakehouse-workspace"
   raw       = "lakehouse-raw"
   landing   = "lakehouse-landing"
   trusted   = "lakehouse-trusted"
-  business   = "lakehouse-business"
+  business  = "lakehouse-business"
 }
 
 databases = {
-  landing = "db_landing"
-  raw = "db_raw"
-  trusted = "db_trusted"
+  landing  = "db_landing"
+  raw      = "db_raw"
+  trusted  = "db_trusted"
   business = "db_business"
 }
 

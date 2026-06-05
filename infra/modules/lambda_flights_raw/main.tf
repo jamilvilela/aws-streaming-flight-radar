@@ -1,6 +1,6 @@
 resource "aws_lambda_function" "lambda_flights_raw" {
   function_name    = "${var.project_name}-${var.lambda_config.name}"
-  role             = var.role_arn
+  role             = aws_iam_role.lambda_execution.arn
   handler          = "lambda_function.lambda_handler"
   runtime          = var.lambda_config.runtime
   filename         = data.archive_file.lambda_function.output_path
