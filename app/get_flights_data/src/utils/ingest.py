@@ -45,15 +45,33 @@ def _cfg(name: str, default: str | None = None, *, cast=str) -> Any:
         return default
 
 
-API_BASE_URL: str = (_cfg("API_BASE_URL", "") or "").rstrip("/")
-API_KEY: str = _cfg("API_KEY", "")
-SOURCE_TAG: str = _cfg("SOURCE_TAG", "notebook")
-REQUEST_TIMEOUT: int = _cfg("REQUEST_TIMEOUT_SECONDS", "15", cast=int)
-MAX_RETRIES: int = _cfg("MAX_RETRIES", "3", cast=int)
-BATCH_CHUNK_SIZE: int = _cfg("BATCH_CHUNK_SIZE", "500", cast=int)
-
 BATCH_PATH = "/flights/batch"
 SINGLE_PATH = "/flights"
+
+
+def API_BASE_URL() -> str:
+    """Resolve API_BASE_URL from env on every call (avoids stale module-level caching)."""
+    return (_cfg("API_BASE_URL", "") or "").rstrip("/")
+
+
+def API_KEY() -> str:
+    return _cfg("API_KEY", "")
+
+
+def SOURCE_TAG() -> str:
+    return _cfg("SOURCE_TAG", "notebook")
+
+
+def REQUEST_TIMEOUT() -> int:
+    return _cfg("REQUEST_TIMEOUT_SECONDS", "15", cast=int)
+
+
+def MAX_RETRIES() -> int:
+    return _cfg("MAX_RETRIES", "3", cast=int)
+
+
+def BATCH_CHUNK_SIZE() -> int:
+    return _cfg("BATCH_CHUNK_SIZE", "500", cast=int)
 
 
 # --------------------------------------------------------------------------- #
@@ -61,9 +79,11 @@ SINGLE_PATH = "/flights"
 # --------------------------------------------------------------------------- #
 
 def _validate_config() -> None:
-    if not API_BASE_URL:
+    base = API_BASE_URL()
+    key = API_KEY()
+    if not base:
         raise RuntimeError("API_BASE_URL is not set; check your .env file")
-    if not API_KEY or API_KEY == "REPLACE_ME_WITH_TERRAFORM_OUTPUT_API_KEY_VALUE":
+    if not key or key == "REPLACE_ME_WITH_TERRAFORM_OUTPUT_API_KEY_VALUE":
         raise RuntimeError(
             "API_KEY is not set (or still the placeholder); "
             "run `terraform output -raw api_key_value` and update .env"
@@ -72,7 +92,7 @@ def _validate_config() -> None:
 
 def _headers() -> dict[str, str]:
     return {
-        "X-Api-Key": API_KEY,
+        "X-Api-Key": API_KEY(),
         "Content-Type": "application/json",
         "Accept": "application/json",
         "User-Agent": "get_flights_data_notebook/1.0",
@@ -86,24 +106,27 @@ def _post_with_retry(path: str, body: dict) -> tuple[Response | None, dict[str, 
     carries timing and attempt info.
     """
     _validate_config()
-    url = f"{API_BASE_URL}{path}"
+    max_retries = MAX_RETRIES()
+    url = f"{API_BASE_URL()}{path}"
     meta: dict[str, Any] = {"url": url, "attempts": 0, "elapsed_ms": 0}
     start = time.perf_counter()
 
     last_exc: Exception | None = None
-    for attempt in range(1, MAX_RETRIES + 1):
+    for attempt in range(1, max_retries + 1):
         meta["attempts"] = attempt
         try:
-            resp = requests.post(url, headers=_headers(), json=body, timeout=REQUEST_TIMEOUT)
+            resp = requests.post(
+                url, headers=_headers(), json=body, timeout=REQUEST_TIMEOUT()
+            )
             meta["elapsed_ms"] = int((time.perf_counter() - start) * 1000)
             meta["status_code"] = resp.status_code
             return resp, meta
         except RequestException as exc:
             last_exc = exc
             logger.warning(
-                "POST %s failed (attempt %d/%d): %s", path, attempt, MAX_RETRIES, exc
+                "POST %s failed (attempt %d/%d): %s", path, attempt, max_retries, exc
             )
-            if attempt < MAX_RETRIES:
+            if attempt < max_retries:
                 time.sleep(min(2 ** attempt, 30))
 
     meta["elapsed_ms"] = int((time.perf_counter() - start) * 1000)
@@ -139,7 +162,7 @@ def send_states_to_api_batch(
     states_payload: list[dict],
     *,
     source: str | None = None,
-    chunk_size: int = BATCH_CHUNK_SIZE,
+    chunk_size: int | None = None,
 ) -> dict[str, Any]:
     """
     Send a list of state dicts in one or more /flights/batch calls.
@@ -159,14 +182,15 @@ def send_states_to_api_batch(
     if not states_payload:
         return {"sent": 0, "rejected": 0, "failed_chunks": 0, "chunks": 0, "duration_ms": 0}
 
-    src = source or SOURCE_TAG
+    src = source or SOURCE_TAG()
     sent = 0
     rejected = 0
     failed_chunks = 0
     duration_ms = 0
     chunks = 0
+    effective_chunk_size = chunk_size if chunk_size is not None else BATCH_CHUNK_SIZE()
 
-    for chunk in _iter_chunks(states_payload, chunk_size):
+    for chunk in _iter_chunks(states_payload, effective_chunk_size):
         chunks += 1
         body = {"states": chunk, "source": src}
         resp, meta = _post_with_retry(BATCH_PATH, body)
@@ -240,7 +264,7 @@ def send_states_to_api_single(
         return {"sent": 0, "rejected": 0, "failed": 0, "requests": 0, "duration_ms": 0}
 
     _validate_config()
-    src = source or SOURCE_TAG
+    src = source or SOURCE_TAG()
     start = time.perf_counter()
     sent = 0
     rejected = 0

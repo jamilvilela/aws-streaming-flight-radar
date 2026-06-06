@@ -17,6 +17,12 @@ variable "environment_variables" {
   default = {}
 }
 
+variable "layer_arns" {
+  description = "List of Lambda layer ARNs to attach (e.g. the shared python deps layer)."
+  type        = list(string)
+  default     = []
+}
+
 variable "log_retention_days" {
   type    = number
   default = 7
