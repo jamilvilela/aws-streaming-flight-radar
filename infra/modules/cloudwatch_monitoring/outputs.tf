@@ -37,10 +37,10 @@ output "degraded_composite_alarm_arn" {
 output "kinesis_alarms" {
   description = "Mapa com ARNs dos alarmes do Kinesis"
   value = {
-    iterator_age      = aws_cloudwatch_metric_alarm.kinesis_iterator_age.arn
-    no_records        = aws_cloudwatch_metric_alarm.kinesis_no_incoming_records.arn
-    write_throttled   = aws_cloudwatch_metric_alarm.kinesis_write_throttled.arn
-    read_throttled    = aws_cloudwatch_metric_alarm.kinesis_read_throttled.arn
+    iterator_age    = aws_cloudwatch_metric_alarm.kinesis_iterator_age.arn
+    no_records      = aws_cloudwatch_metric_alarm.kinesis_no_incoming_records.arn
+    write_throttled = aws_cloudwatch_metric_alarm.kinesis_write_throttled.arn
+    read_throttled  = aws_cloudwatch_metric_alarm.kinesis_read_throttled.arn
   }
 }
 
@@ -74,6 +74,6 @@ output "lambda_alarms" {
 }
 
 output "aws_sns_topic_pipeline_alarms_arn" {
-  value = aws_sns_topic.pipeline_alarms.arn
-  description = "ARN do tópico SNS para alarmes do pipeline de streaming"  
+  value       = aws_sns_topic.pipeline_alarms.arn
+  description = "ARN do tópico SNS para alarmes do pipeline de streaming"
 }

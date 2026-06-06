@@ -1,6 +1,0 @@
-query Athena: eventos → sessões usuário
-+ session gap ~ 30min inatividade
-+ CTE nomeadas + window fn
-+ partition prune por dt
-! custo scan > performance
-→ retorna: user_id, session_id, start, end, eventos

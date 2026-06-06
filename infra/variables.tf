@@ -35,7 +35,6 @@ variable "kinesis_firehose" {
     name                = string
     prefix              = string
     error_output_prefix = string
-    # opensearch_index_name = string
   }))
 }
 
@@ -72,98 +71,30 @@ variable "tables" {
   type        = map(string)
 }
 
-# variable "opensearch" {
-#   description = "Configurações do OpenSearch Serverless"
-#   type = object({
-#     flights = object({
-#       collection_name    = string
-#       collection_type    = string
-#       standby_replicas   = string
-#       vpc_id             = string
-#     })
-#   })
-#   default = {
-#     flights = {
-#       collection_name    = "flight-radar-flights"
-#       collection_type    = "TIMESERIES"
-#       standby_replicas   = "ENABLED"
-#       vpc_id             = ""
-#     }
-#   }
-#   validation {
-#     condition = contains(
-#       ["SEARCH", "TIMESERIES", "VECTORSEARCH"],
-#       var.opensearch.flights.collection_type
-#     )
-#     error_message = "collection_type must be one of: SEARCH, TIMESERIES, VECTORSEARCH."
-#   }
-#   validation {
-#     condition = contains(
-#       ["ENABLED", "DISABLED"],
-#       var.opensearch.flights.standby_replicas
-#     )
-#     error_message = "standby_replicas must be either ENABLED or DISABLED."
-#   }
-#   validation {
-#     condition = length(var.opensearch.flights.collection_name) >= 3 && length(var.opensearch.flights.collection_name) <= 63 && can(regex("^[a-z][a-z0-9-]*[a-z0-9]$", var.opensearch.flights.collection_name))
-#     error_message = "collection_name must be 3-63 characters, start with letter, end with letter/number, lowercase only."
-#   }
-# }
-
 variable "alarm_thresholds" {
   description = "Thresholds personalizáveis para alarmes CloudWatch"
   type = object({
-    # Kinesis Stream
-    kinesis_iterator_age_ms        = number
-    kinesis_no_records_minutes     = number
-    kinesis_write_throttle_percent = number
-    kinesis_read_throttle_percent  = number
-
-    # Kinesis Firehose
+    kinesis_iterator_age_ms           = number
+    kinesis_no_records_minutes        = number
+    kinesis_write_throttle_percent    = number
+    kinesis_read_throttle_percent     = number
     firehose_delivery_failure_percent = number
     firehose_incoming_records_low     = number
-
-    # Lambda Functions
-    lambda_error_percent   = number
-    lambda_duration_p95_ms = number
-    lambda_throttle_count  = number
-
-    # OpenSearch Cluster (Legacy)
-    # opensearch_cpu_percent            = optional(number, 80)
-    # opensearch_jvm_memory_percent     = optional(number, 85)
-
-    # # OpenSearch Serverless (Novo)
-    # opensearch_ocu_utilization        = optional(number, 80)
-
-    # # OpenSearch (Ambos)
-    # opensearch_indexing_failures      = number
+    lambda_error_percent              = number
+    lambda_duration_p95_ms            = number
+    lambda_throttle_count             = number
   })
 
   default = {
-    # Kinesis Stream
-    kinesis_iterator_age_ms        = 60000 # 60 segundos
-    kinesis_no_records_minutes     = 10    # 10 minutos
-    kinesis_write_throttle_percent = 5     # 5%
-    kinesis_read_throttle_percent  = 5     # 5%
-
-    # Kinesis Firehose
-    firehose_delivery_failure_percent = 10 # 10%
-    firehose_incoming_records_low     = 1  # 1 registro
-
-    # Lambda Functions
-    lambda_error_percent   = 5    # 5%
-    lambda_duration_p95_ms = 5000 # 5 segundos
-    lambda_throttle_count  = 10   # 10 throttles
-
-    # # OpenSearch Cluster (Legacy)
-    # opensearch_cpu_percent            = 80       # 80%
-    # opensearch_jvm_memory_percent     = 85       # 85%
-
-    # # OpenSearch Serverless (Novo)
-    # opensearch_ocu_utilization        = 80       # 80%
-
-    # # OpenSearch (Ambos)
-    # opensearch_indexing_failures      = 5        # 5 falhas
+    kinesis_iterator_age_ms           = 60000
+    kinesis_no_records_minutes        = 10
+    kinesis_write_throttle_percent    = 5
+    kinesis_read_throttle_percent     = 5
+    firehose_delivery_failure_percent = 10
+    firehose_incoming_records_low     = 1
+    lambda_error_percent              = 5
+    lambda_duration_p95_ms            = 5000
+    lambda_throttle_count             = 10
   }
 
   validation {
@@ -185,21 +116,6 @@ variable "alarm_thresholds" {
     condition     = var.alarm_thresholds.lambda_duration_p95_ms >= 0 && var.alarm_thresholds.lambda_duration_p95_ms <= 900000
     error_message = "lambda_duration_p95_ms must be between 0 and 900000 (15 minutes)."
   }
-
-  # validation {
-  #   condition = var.alarm_thresholds.opensearch_cpu_percent >= 0 && var.alarm_thresholds.opensearch_cpu_percent <= 100
-  #   error_message = "opensearch_cpu_percent must be between 0 and 100."
-  # }
-
-  # validation {
-  #   condition = var.alarm_thresholds.opensearch_jvm_memory_percent >= 0 && var.alarm_thresholds.opensearch_jvm_memory_percent <= 100
-  #   error_message = "opensearch_jvm_memory_percent must be between 0 and 100."
-  # }
-
-  # validation {
-  #   condition = var.alarm_thresholds.opensearch_ocu_utilization >= 0 && var.alarm_thresholds.opensearch_ocu_utilization <= 100
-  #   error_message = "opensearch_ocu_utilization must be between 0 and 100."
-  # }
 }
 
 variable "flink_config" {
@@ -210,8 +126,8 @@ variable "flink_config" {
   })
 
   default = {
-    parallelism = 1     # 4 KPUs (adequado para 50k-100k eventos/min)
-    auto_start  = false # false em dev, true em prod (via CI/CD)
+    parallelism = 1
+    auto_start  = false
   }
 
   validation {
@@ -233,9 +149,9 @@ variable "redshift_config" {
 
   default = {
     admin_username        = "admin"
-    admin_password        = "ChangeMe123!@#" # Use AWS Secrets Manager!
-    base_capacity         = 32               # RPUs (32 = minimum)
-    max_capacity          = 256              # Auto-scaling max
+    admin_password        = "ChangeMe123!@#"
+    base_capacity         = 32
+    max_capacity          = 256
     backup_retention_days = 7
     log_retention_days    = 7
   }
@@ -265,4 +181,49 @@ variable "sns_config" {
   default = {
     alert_email_addresses = []
   }
+}
+
+# ============================================================================
+# API Gateway + Lambda ingestion configuration
+# ============================================================================
+
+variable "create_api_gateway" {
+  description = "Cria o API Gateway, o Usage Plan e a API Key. Use false em ambientes que não expõem borda (ex: dev local)."
+  type        = bool
+  default     = true
+}
+
+variable "create_api_key" {
+  description = "Cria uma API Key vinculada ao Usage Plan. Quando false, chaves devem ser criadas externamente."
+  type        = bool
+  default     = true
+}
+
+variable "api_gateway_stage_name" {
+  type    = string
+  default = "v1"
+}
+
+variable "api_throttle_burst_limit" {
+  description = "Burst máximo (token bucket) por API key no Usage Plan"
+  type        = number
+  default     = 200
+}
+
+variable "api_throttle_rate_limit" {
+  description = "Taxa sustentada (req/s) por API key no Usage Plan"
+  type        = number
+  default     = 100
+}
+
+variable "api_quota_limit" {
+  description = "Cota diária (requests) por API key no Usage Plan"
+  type        = number
+  default     = 100000
+}
+
+variable "lambda_flights_reserved_concurrency" {
+  description = "Reserved concurrent executions for the ingestion Lambda. null = unreserved"
+  type        = number
+  default     = null
 }

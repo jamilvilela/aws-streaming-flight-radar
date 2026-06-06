@@ -1,6 +1,0 @@
-job Spark: raw S3 → silver Delta
-+ dedup w/ window fn
-+ schema enforce + bad records → dead-letter
-+ métricas: rows_in/out, nulls, dupes
-! partition by dt + id_tenant
-~ medallion bronze→silver→gold

@@ -1,27 +1,41 @@
-output "lambda_flights_raw_arn" {
-  value = module.lambda_flights_raw.lambda_arn
-}
-
-output "lambda_flights_raw_iam_role_arn" {
-  value = module.lambda_flights_raw.iam_role_arn
-}
-
-output "kinesis_analytics_flights_iam_role_arn" {
-  value = module.kinesis_analytics_flights.iam_role_arn
-}
-
-# output "lambda_flights_enriched_arn" {
-#   value       = module.lambda_flights_enriched.lambda_arn
-# }
 output "kinesis_stream_flights_info" {
   value = module.kinesis_stream_flights.kinesis_streams_info
 }
-# output "kinesis_firehose_to_opensearch_info" {
-#   value       = module.kinesis_firehose_flights.kinesis_firehose_to_opensearch_info
-# }
-# output "opensearch_collection_endpoint" {
-#   value = module.opensearch.collection_endpoint
-# }
-# output "opensearch_dashboard_endpoint" {
-#   value = module.opensearch.dashboard_endpoint
-# }
+
+output "lambda_flights_function_arn" {
+  value = module.lambda_flights.function_arn
+}
+
+output "lambda_flights_function_name" {
+  value = module.lambda_flights.function_name
+}
+
+output "lambda_flights_iam_role_arn" {
+  value = module.lambda_flights.iam_role_arn
+}
+
+output "flights_dlq_url" {
+  value = module.flights_dlq.queue_url
+}
+
+output "flights_dlq_arn" {
+  value = module.flights_dlq.queue_arn
+}
+
+output "api_invoke_url" {
+  description = "Base invoke URL of the edge API (e.g. https://<id>.execute-api.us-east-1.amazonaws.com/v1)"
+  value       = module.api_gateway.stage_invoke_url
+}
+
+output "api_id" {
+  value = module.api_gateway.api_id
+}
+
+output "api_key_id" {
+  value = module.api_gateway.api_key_id
+}
+
+output "api_key_value" {
+  value     = module.api_gateway.api_key_value
+  sensitive = true
+}
