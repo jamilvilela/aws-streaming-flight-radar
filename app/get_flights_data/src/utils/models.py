@@ -118,6 +118,48 @@ class StateVector:
             result[field] = value
         return result
 
+    def to_api_payload(self) -> Dict[str, Any]:
+        """
+        Emit a dict matching the project's edge API contract.
+
+        The Lambda at /flights and /flights/batch accepts the OpenSky-style
+        state vector where time_position and last_contact are Unix epoch
+        seconds (int). The model's `to_dict` produces ISO strings, which the
+        Pydantic model on the server side would reject (it expects int).
+        """
+        payload: Dict[str, Any] = {"icao24": self.icao24}
+        if self.callsign is not None:
+            payload["callsign"] = self.callsign
+        if self.origin_country is not None:
+            payload["origin_country"] = self.origin_country
+        if self.time_position is not None:
+            payload["time_position"] = int(self.time_position.timestamp())
+        if self.last_contact is not None:
+            payload["last_contact"] = int(self.last_contact.timestamp())
+        if self.longitude is not None:
+            payload["longitude"] = self.longitude
+        if self.latitude is not None:
+            payload["latitude"] = self.latitude
+        if self.altitude is not None:
+            payload["altitude"] = self.altitude
+        if self.on_ground is not None:
+            payload["on_ground"] = self.on_ground
+        if self.velocity is not None:
+            payload["velocity"] = self.velocity
+        if self.heading is not None:
+            payload["heading"] = self.heading
+        if self.vertical_rate is not None:
+            payload["vertical_rate"] = self.vertical_rate
+        if self.geo_altitude is not None:
+            payload["geo_altitude"] = self.geo_altitude
+        if self.squawk is not None:
+            payload["squawk"] = self.squawk
+        if self.spi is not None:
+            payload["spi"] = self.spi
+        if self.position_source is not None:
+            payload["position_source"] = int(self.position_source.value)
+        return payload
+
 
 @dataclass
 class FlightTrackPoint:

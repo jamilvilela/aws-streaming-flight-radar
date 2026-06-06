@@ -73,7 +73,7 @@ variable "lambda_functions" {
 #   description = "Tipo: 'cluster' ou 'serverless'"
 #   type        = string
 #   default     = "serverless"
-  
+
 #   validation {
 #     condition     = contains(["cluster", "serverless"], var.opensearch_type)
 #     error_message = "opensearch_type must be either 'cluster' or 'serverless'."
@@ -168,7 +168,7 @@ variable "alerts_email" {
   description = "Email para receber notificações de alarme"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for email in var.alerts_email : can(regex("^[\\w-\\.]+@([\\w-]+\\.)+[\\w-]{2,4}$", email))
@@ -181,7 +181,7 @@ variable "dash_user_arns" {
   description = "Lista de ARNs dos usuários IAM com acesso ao OpenSearch Dashboards"
   type        = list(string)
   default     = []
-  
+
   validation {
     condition = alltrue([
       for arn in var.dash_user_arns : can(regex("^arn:aws:iam::[0-9]{12}:user/.+$", arn))

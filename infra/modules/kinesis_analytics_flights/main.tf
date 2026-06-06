@@ -90,7 +90,9 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
         property_group_id = "FLINK_APPLICATION_PROPERTIES"
 
         property_map = {
-          AwsRegion = var.region
+          AwsRegion          = var.region
+          KINESIS_STREAM_ARN = var.kinesis_stream_arn
+          AWS_REGION         = var.region
 
           # CORREÇÃO: Desabilitar restart automático para evitar loop de failover
           # O connector Kinesis tem bug de "partial recovery" - com restart
@@ -103,7 +105,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
         property_group_id = "kinesis.analytics.flink.run.options"
 
         property_map = {
-          python  = "app.py"
+          python = "app.py"
         }
       }
     }

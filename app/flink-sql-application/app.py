@@ -45,8 +45,16 @@ def main():
         sql_files = [
             ("source", os.path.join(base_dir, "01_source.sql")),
             ("view", os.path.join(base_dir, "02_enriched_view.sql")),
-            ("sinks", os.path.join(base_dir, "03_sinks_kinesis.sql"))
+            ("sinks", os.path.join(base_dir, "03_sinks_s3.sql"))
         ]
+
+        # Get environment variables for SQL substitution
+        kinesis_stream_arn = os.environ.get("KINESIS_STREAM_ARN", "")
+        aws_region = os.environ.get("AWS_REGION", "us-east-1")
+        
+        if not kinesis_stream_arn:
+            log("ERROR: KINESIS_STREAM_ARN environment variable not set")
+            sys.exit(1)
 
         statement_set = table_env.create_statement_set()
         has_inserts = False
@@ -55,6 +63,10 @@ def main():
             log(f"Reading SQL file: {name}")
             with open(file_path, "r", encoding="utf-8") as f:
                 sql_content = f.read()
+            
+            # Perform variable substitution
+            sql_content = sql_content.replace("${KINESIS_STREAM_ARN}", kinesis_stream_arn)
+            sql_content = sql_content.replace("${AWS_REGION}", aws_region)
             
             raw_statements = sql_content.split(';')
             for raw_stmt in raw_statements:

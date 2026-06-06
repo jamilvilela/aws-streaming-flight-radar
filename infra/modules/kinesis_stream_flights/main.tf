@@ -5,7 +5,7 @@
 # Cada stream pode ser: flights, flights_rt, outputs de Flink, etc.
 
 resource "aws_kinesis_stream" "this" {
-  for_each          = var.kinesis_streams
+  for_each         = var.kinesis_streams
   name             = each.value.name
   retention_period = var.retention_hours
 

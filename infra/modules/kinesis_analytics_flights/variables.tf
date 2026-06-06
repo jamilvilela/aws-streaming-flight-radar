@@ -15,8 +15,8 @@ variable "region" {
   default     = "us-east-1"
 }
 
-variable "source_kinesis_stream_arn" {
-  description = "ARN do Kinesis Stream de origem (kinesis_stream_flights)"
+variable "kinesis_stream_arn" {
+  description = "ARN do Kinesis Stream de origem para aplicação Flink"
   type        = string
 }
 
@@ -76,7 +76,7 @@ variable "create_cloudwatch_alarms" {
 variable "tags" {
   description = "Tags a serem aplicadas aos recursos"
   type        = map(string)
-  default     = {} 
+  default     = {}
 }
 
 variable "s3_artifacts_bucket" {

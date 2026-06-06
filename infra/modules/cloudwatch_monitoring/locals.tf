@@ -1,31 +1,31 @@
 locals {
   # Prefixo comum para nomes de recursos
   name_prefix = "${var.project_name}-${var.environment}"
-  
+
   # Dimensões comuns
   kinesis_dimensions = {
     StreamName = var.kinesis_stream_name
   }
-  
+
   firehose_s3_dimensions = var.firehose_s3_name != "" ? {
     DeliveryStreamName = var.firehose_s3_name
   } : {}
-  
+
   # firehose_opensearch_dimensions = var.firehose_opensearch_name != "" ? {
   #   DeliveryStreamName = var.firehose_opensearch_name
   # } : {}
-  
+
   # # ✅ Dimensões OpenSearch Serverless
   # opensearch_serverless_dimensions = var.opensearch_collection_name != "" ? {
   #   CollectionName = var.opensearch_collection_name
   # } : {}
-  
+
   # # ✅ Dimensões OpenSearch Cluster
   # opensearch_cluster_dimensions = var.opensearch_domain_name != "" ? {
   #   DomainName = var.opensearch_domain_name
   #   ClientId   = "all"
   # } : {}
-  
+
   # Cores para widgets do dashboard
   colors = {
     success = "#2ca02c"
@@ -33,7 +33,7 @@ locals {
     error   = "#d62728"
     info    = "#1f77b4"
   }
-  
+
   # Períodos padrão para métricas
   periods = {
     real_time = 60
@@ -41,12 +41,12 @@ locals {
     medium    = 900
     long      = 3600
   }
-  
+
   # =====================================================================
   # WIDGETS DO DASHBOARD - Padronizados para evitar erro de tipo
   # =====================================================================
   dashboard_widgets = flatten([
-    
+
     # Header (sempre presente)
     [{
       type   = "text"
@@ -58,7 +58,7 @@ locals {
         markdown = "# 🚀 ${upper(var.project_name)} - Pipeline\n**Ambiente:** ${upper(var.environment)}"
       }
     }],
-    
+
     # Kinesis Widgets
     [for i in [0] : {
       type   = "metric"
@@ -77,7 +77,7 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.kinesis_stream_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 12
@@ -85,17 +85,17 @@ locals {
       width  = 12
       height = 6
       properties = {
-        title  = "⏱️ Iterator Age"
-        period = local.periods.short
-        stat   = "Maximum"
-        region = var.aws_region
-        metrics = [["AWS/Kinesis", "GetRecords.IteratorAgeMilliseconds", "StreamName", var.kinesis_stream_name, { label = "ms", color = local.colors.error }]]
+        title       = "⏱️ Iterator Age"
+        period      = local.periods.short
+        stat        = "Maximum"
+        region      = var.aws_region
+        metrics     = [["AWS/Kinesis", "GetRecords.IteratorAgeMilliseconds", "StreamName", var.kinesis_stream_name, { label = "ms", color = local.colors.error }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0, label = "ms" } }
         annotations = { horizontal = [{ label = "Threshold", value = var.alarm_thresholds.kinesis_iterator_age_ms, color = local.colors.error }] }
       }
     } if var.kinesis_stream_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 0
@@ -116,7 +116,7 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.kinesis_stream_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 12
@@ -137,17 +137,17 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.kinesis_stream_name != ""],
-    
+
     # Firehose S3 Widgets
     [for i in [0] : {
-      type   = "text"
-      x      = 0
-      y      = var.kinesis_stream_name != "" ? 13 : 1
-      width  = 24
-      height = 1
+      type       = "text"
+      x          = 0
+      y          = var.kinesis_stream_name != "" ? 13 : 1
+      width      = 24
+      height     = 1
       properties = { markdown = "## 🪣 Firehose → S3" }
     } if var.firehose_s3_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 0
@@ -165,7 +165,7 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.firehose_s3_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 8
@@ -183,7 +183,7 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.firehose_s3_name != ""],
-    
+
     [for i in [0] : {
       type   = "metric"
       x      = 16
@@ -201,6 +201,6 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.firehose_s3_name != ""],
-  
+
   ])
 }

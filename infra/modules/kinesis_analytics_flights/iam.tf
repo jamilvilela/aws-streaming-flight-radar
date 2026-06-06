@@ -1,3 +1,5 @@
+data "aws_caller_identity" "current" {}
+
 data "aws_iam_policy_document" "kda_assume_role" {
   statement {
     actions = ["sts:AssumeRole"]
@@ -77,7 +79,17 @@ data "aws_iam_policy_document" "kda_policy" {
       "kms:GenerateDataKey",
       "kms:DescribeKey"
     ]
-    resources = ["*"]
+    resources = [
+      "arn:aws:kms:${var.region}:${data.aws_caller_identity.current.account_id}:key/*"
+    ]
+    condition {
+      test     = "StringEquals"
+      variable = "kms:ViaService"
+      values = [
+        "kinesis.${var.region}.amazonaws.com",
+        "s3.${var.region}.amazonaws.com"
+      ]
+    }
   }
 }
 

@@ -29,11 +29,13 @@ CREATE TABLE state_vectors_source (
     position_source     INT,                       -- Fonte de posição (0=ADS-B, 1=surface, 2=radar, etc)
     
     -- Metadados Kinesis
-    event_time AS PROCTIME()
+    -- Usar CURRENT_TIMESTAMP ROWTIME para trabalhar com janelas time-based
+    -- (PROCTIME não é apropriado para agregações com TUMBLE/HOP)
+    CURRENT_TIMESTAMP AS event_time ROWTIME
 ) WITH (
     'connector'                 = 'kinesis',
-    'stream.arn'                = 'arn:aws:kinesis:us-east-1:331504768406:stream/flight-radar-stream-flights',
-    'aws.region'                = 'us-east-1',
+    'stream.arn'                = '${KINESIS_STREAM_ARN}',
+    'aws.region'                = '${AWS_REGION}',
     'source.init.position'      = 'LATEST',
     'format'                    = 'json',
     'json.ignore-parse-errors'  = 'true',
