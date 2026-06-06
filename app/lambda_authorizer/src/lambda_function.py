@@ -95,14 +95,14 @@ def authorize(event: dict) -> dict:
         return _deny_policy("*", "missing_method_arn")
 
     # API Gateway already validates the X-Api-Key against the Usage Plan.
-    # We do not re-validate the key itself; we simply ensure the identity
-    # is present so the request can't sneak past when the key header is
-    # missing (which should not happen if API Key is required on the
-    # method, but defense-in-depth).
-    identity = event.get("requestContext", {}).get("identity", {}) or {}
-    api_key_id = identity.get("apiKeyId") or ""
+    # For a TOKEN authorizer, the raw X-Api-Key value is delivered as
+    # `authorizationToken`. We do not re-validate the key itself; we just
+    # make sure a non-empty token is present so the request can't sneak
+    # past when the key header is missing (which should not happen if
+    # api_key_required is set on the method, but defense-in-depth).
+    api_key_id = event.get("authorizationToken") or ""
     if not api_key_id or not _API_KEY_RE.match(api_key_id):
-        return _deny_policy(arn, "missing_or_invalid_api_key")
+        return _deny_policy(arn, f"missing_or_invalid_api_key:{api_key_id!r}")
 
     # Optional country allow-list. The authorizer does not know the body,
     # so the per-record country filter lives in the ingestion Lambda.

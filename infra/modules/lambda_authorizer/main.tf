@@ -5,6 +5,7 @@ resource "aws_lambda_function" "authorizer" {
   runtime          = var.lambda_config.runtime
   filename         = data.archive_file.authorizer_function.output_path
   source_code_hash = data.archive_file.authorizer_function.output_base64sha256
+  layers           = var.layer_arns
   timeout          = var.lambda_config.timeout
   memory_size      = var.lambda_config.memory_size
 

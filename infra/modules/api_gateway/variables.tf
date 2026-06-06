@@ -33,12 +33,12 @@ variable "lambda_invoke_arn" {
 
 variable "authorizer_invoke_arn" {
   type        = string
-  description = "Invoke ARN of the Lambda authorizer"
+  description = "Invoke ARN of the Lambda authorizer (used by the API Gateway authorizer integration URI)"
 }
 
-variable "authorizer_credentials_arn" {
+variable "authorizer_function_arn" {
   type        = string
-  description = "IAM role ARN that API Gateway assumes to invoke the authorizer"
+  description = "Plain ARN of the Lambda authorizer function (used by IAM policies; the invoke ARN is not a valid IAM resource)"
 }
 
 variable "throttle_burst_limit" {
@@ -52,8 +52,8 @@ variable "throttle_rate_limit" {
 }
 
 variable "quota_limit" {
-  type    = number
-  default = 100000
+  type        = number
+  default     = 100000
   description = "Daily request quota per API key"
 }
 
@@ -67,15 +67,20 @@ variable "create_api_key" {
   default = true
 }
 
+variable "create_api_gateway" {
+  type        = bool
+  default     = true
+  description = "When false, the module is a no-op (no API, no IAM, no logs)"
+}
+
 variable "enable_access_logs" {
   type    = bool
   default = true
 }
 
-variable "access_log_group_arn" {
-  type        = string
-  default     = null
-  description = "CloudWatch log group ARN for access logs (required if enable_access_logs = true)"
+variable "access_log_retention_days" {
+  type    = number
+  default = 30
 }
 
 variable "tags" {

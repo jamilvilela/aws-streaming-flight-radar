@@ -35,6 +35,12 @@ variable "dlq_queue_arn" {
   description = "ARN of the SQS DLQ used for invalid records"
 }
 
+variable "dlq_queue_url" {
+  type        = string
+  description = "URL of the SQS DLQ (passed to the Lambda as DLQ_URL for the producer)"
+  default     = ""
+}
+
 variable "tags" {
   type    = map(string)
   default = {}
@@ -50,4 +56,16 @@ variable "log_retention_days" {
   description = "CloudWatch log group retention in days"
   type        = number
   default     = 7
+}
+
+variable "api_gateway_execution_arn" {
+  description = "API Gateway execute-api ARN pattern granting apigateway.amazonaws.com permission to invoke this Lambda. Empty string disables the permission."
+  type        = string
+  default     = ""
+}
+
+variable "layer_arns" {
+  description = "List of Lambda Layer ARNs to attach (e.g. shared Python layer with pydantic)"
+  type        = list(string)
+  default     = []
 }
