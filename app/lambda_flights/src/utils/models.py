@@ -43,7 +43,19 @@ class FlightStateIn(BaseModel):
     latitude: Optional[float] = Field(None, ge=-90.0, le=90.0)
     altitude: Optional[float] = Field(None, description="Barometric altitude in meters")
     on_ground: Optional[bool] = None
-    velocity: Optional[float] = Field(None, ge=0.0, le=2000.0, description="Ground speed m/s")
+    velocity: Optional[float] = Field(
+        None,
+        ge=0.0,
+        le=3000.0,
+        description=(
+            "Ground speed in m/s (OpenSky convention). "
+            "Cap = 3000 m/s ≈ Mach 8.8: covers the fastest experimental aircraft ever "
+            "(X-43A scramjet) while still rejecting obvious ADS-B sensor glitches "
+            "where a Cessna would report Mach 30. Previous cap of 2000 m/s rejected "
+            "legitimate-looking high-Mach state vectors (~2033 m/s observed in the "
+            "OpenSky feed)."
+        ),
+    )
     heading: Optional[float] = Field(None, ge=0.0, lt=360.0, description="True heading in degrees")
     vertical_rate: Optional[float] = Field(None, ge=-200.0, le=200.0, description="m/s")
     geo_altitude: Optional[float] = Field(None, description="Geometric altitude in meters")

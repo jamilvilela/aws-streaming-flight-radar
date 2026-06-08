@@ -111,6 +111,7 @@ module "kinesis_analytics_flights" {
   environment         = var.environment
   region              = var.aws_region
   s3_artifacts_bucket = local.buckets.workspace
+  s3_landing_bucket   = local.buckets.landing
 
   kinesis_stream_arn      = module.kinesis_stream_flights.kinesis_stream_flight_arn
   sink_kinesis_stream_arn = module.kinesis_stream_flights.kinesis_stream_flights_rt_arn
