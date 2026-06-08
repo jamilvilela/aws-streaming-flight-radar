@@ -83,3 +83,8 @@ variable "s3_artifacts_bucket" {
   description = "S3 bucket para armazenar artefatos do Flink (JAR, SQL)"
   type        = string
 }
+
+variable "s3_landing_bucket" {
+  description = "S3 bucket para saída dos dados processados pelo Flink"
+  type        = string
+}

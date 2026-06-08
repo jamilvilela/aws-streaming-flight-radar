@@ -1,6 +1,14 @@
 # AWS Kinesis Data Analytics V2 (Apache Flink) para processar stream de voos
 # Recebe dados do kinesis_stream_flights e envia dados enriquecidos ao S3 Landing
 
+# .env gerado no diretório do app para interpolação nos SQLs
+resource "local_file" "flink_env_file" {
+  filename = "${path.root}/../app/flink-sql-application/.env"
+  content  = <<-EOF
+    KINESIS_STREAM_ARN=${var.kinesis_stream_arn}
+    AWS_REGION=${var.region}
+    EOF
+}
 
 # Log do CloudWatch para aplicação Flink
 resource "aws_cloudwatch_log_group" "kda_flights_log_group" {
@@ -41,7 +49,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
   runtime_environment    = "FLINK-1_20"
   service_execution_role = aws_iam_role.kda_execution.arn
   application_mode       = "STREAMING"
-  start_application      = var.auto_start_application
+  start_application      = true
 
   application_configuration {
     # 1. 01_source.sql - TABLE SOURCE (Kinesis input)
@@ -90,11 +98,10 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
         property_group_id = "FLINK_APPLICATION_PROPERTIES"
 
         property_map = {
-          AwsRegion          = var.region
-          KINESIS_STREAM_ARN = var.kinesis_stream_arn
           AWS_REGION         = var.region
+          KINESIS_STREAM_ARN = var.kinesis_stream_arn
 
-          # CORREÇÃO: Desabilitar restart automático para evitar loop de failover
+          # Desabilitar restart automático para evitar loop de failover
           # O connector Kinesis tem bug de "partial recovery" - com restart
           # habilitado, a aplicação fica em loop constante de falha
           "restart-strategy" = "none"

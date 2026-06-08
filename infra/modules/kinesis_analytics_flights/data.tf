@@ -1,6 +1,7 @@
 data "aws_caller_identity" "current" {}
 
 data "archive_file" "flink_sql_zip" {
+  depends_on = [local_file.flink_env_file]
   type        = "zip"
   output_path = "${path.module}/flink_sql_app.zip"
   source_dir  = "${path.root}/../app/flink-sql-application"
@@ -46,6 +47,21 @@ data "aws_iam_policy_document" "kda_policy" {
     resources = [
       "arn:aws:s3:::${var.s3_artifacts_bucket}",
       "arn:aws:s3:::${var.s3_artifacts_bucket}/*"
+    ]
+  }
+
+  statement {
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:ListBucket",
+      "s3:PutObject",
+      "s3:DeleteObject"
+    ]
+    resources = [
+      "arn:aws:s3:::${var.s3_landing_bucket}",
+      "arn:aws:s3:::${var.s3_landing_bucket}/*"
     ]
   }
 
