@@ -85,5 +85,4 @@ alarm_thresholds = {
   opensearch_indexing_failures      = 5
 }
 
-alarm_evaluation_periods = 2
-alarm_period_seconds     = 300
+
