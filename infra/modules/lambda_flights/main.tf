@@ -49,7 +49,7 @@ resource "aws_lambda_function_event_invoke_config" "lambda_flights" {
 }
 
 resource "aws_lambda_permission" "apigateway_invoke" {
-  count         = var.api_gateway_execution_arn != "" ? 1 : 0
+  count         = var.create_api_gateway ? 1 : 0
   statement_id  = "AllowAPIGatewayInvoke"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.lambda_flights.function_name

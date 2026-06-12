@@ -103,7 +103,13 @@ rm -rf "$LAYER_SITEPACKAGES_DIR"/.[!.]* 2>/dev/null || true
 
 pushd "$LAYER_ROOT_DIR" >/dev/null 2>&1
 echo -e "  ${BLUE}📥 Instalando dependências de '$REQ_FILE'...${NC}"
-"$PYTHON_BIN" -m pip install -r ../requirements.txt -t python
+"$PYTHON_BIN" -m pip install \
+  --platform manylinux2014_x86_64 \
+  --implementation cp \
+  --python-version 3.12 \
+  --only-binary=:all: \
+  -r ../requirements.txt \
+  -t python
 popd >/dev/null 2>&1
 ok "Layer atualizada em '$LAYER_SITEPACKAGES_DIR'"
 
