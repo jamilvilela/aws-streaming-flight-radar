@@ -34,7 +34,7 @@ def main():
         table_env = TableEnvironment.create(env_settings)
         
         # Configure Flink table environment
-        table_env.get_config().set("restart-strategy.type", "none")
+        table_env.get_config().set("restart-strategy.type", "fixed-delay")
         table_env.get_config().set("table.exec.source.idle-timeout", "60000")
         
         base_dir = os.path.dirname(os.path.abspath(__file__))

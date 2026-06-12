@@ -73,7 +73,10 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
       # O bug "Partial recovery not supported" será tratado via
       # restart-strategy=none nas propriedades de ambiente
       checkpoint_configuration {
-        configuration_type = "DEFAULT"
+        configuration_type = "CUSTOM"
+        checkpoint_interval = 60000     # ms (60s)
+        min_pause_between_checkpoints = 30000  # ms (30s)
+        # checkpoint_timeout = 120000    # ms (120s)
       }
 
       # Monitoramento
@@ -104,7 +107,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
           # Desabilitar restart automático para evitar loop de failover
           # O connector Kinesis tem bug de "partial recovery" - com restart
           # habilitado, a aplicação fica em loop constante de falha
-          "restart-strategy" = "none"
+          "restart-strategy" = "fixed-delay"
         }
       }
 
@@ -119,7 +122,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
 
     # Snapshots automáticos para recuperação de falhas
     application_snapshot_configuration {
-      snapshots_enabled = false
+      snapshots_enabled = true
     }
 
     # Configuração de VPC (opcional)

@@ -58,6 +58,12 @@ variable "log_retention_days" {
   default     = 7
 }
 
+variable "create_api_gateway" {
+  description = "Whether to create the Lambda permission that allows API Gateway to invoke this function. Avoids Terraform's unknown count issue when the execution ARN depends on a module that itself depends on this module."
+  type        = bool
+  default     = false
+}
+
 variable "api_gateway_execution_arn" {
   description = "API Gateway execute-api ARN pattern granting apigateway.amazonaws.com permission to invoke this Lambda. Empty string disables the permission."
   type        = string

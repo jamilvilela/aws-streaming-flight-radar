@@ -71,6 +71,7 @@ module "lambda_flights" {
   dlq_queue_arn       = module.flights_dlq.queue_arn
   dlq_queue_url       = module.flights_dlq.queue_url
 
+  create_api_gateway        = var.create_api_gateway
   api_gateway_execution_arn = module.api_gateway.execution_arn
   layer_arns                = [module.python_layer.arn]
 

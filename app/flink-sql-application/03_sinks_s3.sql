@@ -63,6 +63,6 @@ SELECT
     spi,
     position_source,
     ingested_at,
-    event_time,
-    DATE_FORMAT(event_time, 'yyyy-MM-dd-HH') AS dt
+    event_time - INTERVAL '3' HOUR    AS event_time,
+    DATE_FORMAT(event_time - INTERVAL '3' HOUR, 'yyyy-MM-dd-HH') AS dt
 FROM state_vectors_source;

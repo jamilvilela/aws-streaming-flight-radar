@@ -155,7 +155,7 @@ class FlightIngestHandler:
                         details=exc.errors(),
                     )
                 return [s.model_dump() for s in batch.states], batch.source
-            return [body], body.get("source") if isinstance(body, dict) else None
+            return [{k: v for k, v in body.items() if k != "source"}], body.get("source")
         return error_response(400, "invalid_payload", "Body must be an object or array")
 
     def _validate_records(self, raw_records: list) -> tuple[list[FlightStateIn], list[dict]]:
