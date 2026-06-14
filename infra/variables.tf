@@ -29,15 +29,6 @@ variable "kinesis_streams" {
 }
 
 
-variable "kinesis_firehose" {
-  description = "Configuração de um único firehose Kinesis"
-  type = map(object({
-    name                = string
-    prefix              = string
-    error_output_prefix = string
-  }))
-}
-
 variable "lambda_functions" {
   description = "Map of Lambda function configurations"
   type = map(object({
@@ -226,4 +217,47 @@ variable "lambda_flights_reserved_concurrency" {
   description = "Reserved concurrent executions for the ingestion Lambda. null = unreserved"
   type        = number
   default     = null
+}
+
+# ============================================================================
+# RDS PostgreSQL configuration
+# ============================================================================
+
+variable "rds_snapshot_identifier" {
+  description = "Override snapshot_identifier for RDS restore. Set via TF_VAR_rds_snapshot_identifier by restore-from-snapshot.sh."
+  type        = string
+  default     = null
+}
+
+variable "rds_admin_password" {
+  description = "Override admin_password for RDS. Set via TF_VAR_rds_admin_password from .env file to avoid secrets in tfvars."
+  type        = string
+  sensitive   = true
+  default     = null
+}
+
+variable "rds_config" {
+  description = "Configuration for the RDS PostgreSQL instance"
+  type = object({
+    vpc_id                  = string
+    subnet_ids              = list(string)
+    allowed_cidr_blocks     = list(string)
+    db_name                 = optional(string, "flightradar")
+    admin_username          = optional(string, "dbadmin")
+    admin_password          = string
+    instance_class          = optional(string, "db.t3.medium")
+    allocated_storage_gb    = optional(number, 20)
+    max_allocated_storage_gb = optional(number, 100)
+    backup_retention_days   = optional(number, 7)
+    publicly_accessible     = optional(bool, false)
+    snapshot_identifier     = optional(string, null)
+    read_replicas = optional(list(object({
+      instance_class       = optional(string)
+      allocated_storage_gb = optional(number)
+      publicly_accessible  = optional(bool, false)
+    })), [])
+    skip_final_snapshot     = optional(bool, true)
+    deletion_protection     = optional(bool, false)
+    log_retention_days      = optional(number, 7)
+  })
 }

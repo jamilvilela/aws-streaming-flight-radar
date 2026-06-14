@@ -70,6 +70,34 @@ tags = {
 # =============================================================================
 # CLOUDWATCH MONITORING
 # =============================================================================
+# =============================================================================
+# RDS PostgreSQL configuration (lab / dev)
+# =============================================================================
+rds_config = {
+  vpc_id              = "vpc-022139f6bee3cbdd5"
+  subnet_ids          = ["subnet-0051cb2e25a8a1cd7", "subnet-060fa607df99778da", "subnet-0033d0f717071e145"]
+  allowed_cidr_blocks = ["0.0.0.0/0"]
+  db_name             = "flightradar"
+  admin_username      = "dbadmin"
+  admin_password      = "" # override via RDS_ADMIN_PASSWORD in .env
+  instance_class      = "db.t3.micro"
+
+  allocated_storage_gb     = 20
+  max_allocated_storage_gb = 100
+  backup_retention_days    = 7
+  publicly_accessible      = true
+  snapshot_identifier      = null
+  skip_final_snapshot      = true
+  deletion_protection      = false
+  read_replicas = [
+    {
+      instance_class       = "db.t3.micro"
+      allocated_storage_gb = 20
+      publicly_accessible  = false
+    },
+  ]  
+}
+
 alarm_thresholds = {
   kinesis_iterator_age_ms           = 60000
   kinesis_no_records_minutes        = 10
