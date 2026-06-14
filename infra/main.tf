@@ -105,6 +105,33 @@ module "api_gateway" {
   tags = var.tags
 }
 
+module "rds_postgres" {
+  source = "./modules/rds_postgres"
+
+  project_name = var.project_name
+  environment  = var.environment
+
+  vpc_id              = var.rds_config.vpc_id
+  subnet_ids          = var.rds_config.subnet_ids
+  allowed_cidr_blocks = var.rds_config.allowed_cidr_blocks
+  db_name             = var.rds_config.db_name
+  admin_username      = var.rds_config.admin_username
+  admin_password      = var.rds_admin_password != null ? var.rds_admin_password : var.rds_config.admin_password
+  instance_class      = var.rds_config.instance_class
+
+  snapshot_identifier      = var.rds_snapshot_identifier != null ? var.rds_snapshot_identifier : var.rds_config.snapshot_identifier
+  read_replicas            = var.rds_config.read_replicas
+  allocated_storage_gb     = var.rds_config.allocated_storage_gb
+  max_allocated_storage_gb = var.rds_config.max_allocated_storage_gb
+  backup_retention_days    = var.rds_config.backup_retention_days
+  publicly_accessible      = var.rds_config.publicly_accessible
+  skip_final_snapshot      = var.rds_config.skip_final_snapshot
+  deletion_protection      = var.rds_config.deletion_protection
+  log_retention_days       = var.rds_config.log_retention_days
+
+  tags = var.tags
+}
+
 module "kinesis_analytics_flights" {
   source = "./modules/kinesis_analytics_flights"
 

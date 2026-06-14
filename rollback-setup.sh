@@ -4,6 +4,8 @@
 
 set -a
 
+export AWS_PAGER=""  # disable AWS CLI pager (avoids Enter-key prompts on JSON output)
+
 # =============================================================================
 # STEP 1: Load environment variables from .env (optional)
 # =============================================================================
@@ -33,7 +35,34 @@ echo "📁 Mudado para diretório: $(pwd)"
 set +a
 
 # =============================================================================
-# STEP 3: Terraform destroy with confirmation
+# STEP 3: Create final RDS snapshot before destruction
+# =============================================================================
+RDS_IDENTIFIER="${PROJECT_NAME:-flight-radar-stream}-postgres"
+SNAPSHOT_ID="${RDS_IDENTIFIER}-snapshot-$(date +%Y%m%d-%H%M%S)"
+SNAPSHOT_FILE=".rds-snapshot-id"
+
+echo ""
+echo "💾 Criando snapshot do RDS ($RDS_IDENTIFIER) antes da destruição..."
+echo "   Snapshot: $SNAPSHOT_ID"
+
+if aws rds describe-db-instances --db-instance-identifier "$RDS_IDENTIFIER" &>/dev/null; then
+    aws rds create-db-snapshot \
+        --db-instance-identifier "$RDS_IDENTIFIER" \
+        --db-snapshot-identifier "$SNAPSHOT_ID"
+
+    echo "⏳ Aguardando snapshot ficar disponível..."
+    aws rds wait db-snapshot-available \
+        --db-instance-identifier "$RDS_IDENTIFIER" \
+        --db-snapshot-identifier "$SNAPSHOT_ID"
+
+    echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE"
+    echo "✅ Snapshot salvo: $SNAPSHOT_ID"
+else
+    echo "⚠️  Instância RDS $RDS_IDENTIFIER não encontrada. Pulando snapshot."
+fi
+
+# =============================================================================
+# STEP 4: Terraform destroy with confirmation
 # =============================================================================
 echo ""
 echo "⚠️  AVISO: Você está prestes a DESTRUIR todos os recursos AWS!"

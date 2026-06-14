@@ -74,6 +74,7 @@ resource "aws_kinesisanalyticsv2_application" "kda_flights" {
       # restart-strategy=none nas propriedades de ambiente
       checkpoint_configuration {
         configuration_type = "CUSTOM"
+        checkpointing_enabled = true
         checkpoint_interval = 60000     # ms (60s)
         min_pause_between_checkpoints = 30000  # ms (30s)
         # checkpoint_timeout = 120000    # ms (120s)

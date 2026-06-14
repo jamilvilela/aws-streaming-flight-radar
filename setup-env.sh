@@ -68,6 +68,11 @@ if [ -n "$AWS_REGION" ]; then
   export TF_VAR_region="$AWS_REGION"
 fi
 
+if [ -n "$RDS_ADMIN_PASSWORD" ]; then
+  export TF_VAR_rds_admin_password="$RDS_ADMIN_PASSWORD"
+  ok "RDS_ADMIN_PASSWORD carregada do .env (sobrescreve tfvars)"
+fi
+
 # ---------------------------------------------------------------------------
 # STEP 2: AWS credentials sanity check (warn only, do not block)
 # ---------------------------------------------------------------------------
@@ -152,6 +157,30 @@ terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 [ $? -ne 0 ] && { fail "terraform plan falhou"; exit 2; }
 ok "plan concluído (salvo em tfplan)"
 
+# ---------------------------------------------------------------------------
+# STEP 7.5 — Check for RDS snapshot to restore
+# ---------------------------------------------------------------------------
+RESTORE_SNAPSHOT=""
+SNAPSHOT_FILE=".rds-snapshot-id"
+if [ -f "$SNAPSHOT_FILE" ]; then
+  SNAPSHOT_ID=$(cat "$SNAPSHOT_FILE")
+  if [ -n "$SNAPSHOT_ID" ]; then
+    echo -e "  ${BLUE}💾 Snapshot encontrado: $SNAPSHOT_ID${NC}"
+    if aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" &>/dev/null; then
+      SNAPSHOT_STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" --query 'DBSnapshots[0].Status' --output text)
+      if [ "$SNAPSHOT_STATUS" = "available" ]; then
+        export TF_VAR_rds_snapshot_identifier="$SNAPSHOT_ID"
+        RESTORE_SNAPSHOT="$SNAPSHOT_ID"
+        ok "RDS será restaurado do snapshot '$SNAPSHOT_ID'"
+      else
+        warn "Snapshot '$SNAPSHOT_ID' tem status '$SNAPSHOT_STATUS' (esperado: available). Ignorando."
+      fi
+    else
+      warn "Snapshot '$SNAPSHOT_ID' não encontrado na conta. Ignorando (RDS será criado vazio)."
+    fi
+  fi
+fi
+
 if [ "$SKIP_APPLY" -eq 1 ]; then
   warn "--skip-apply informado; apply não será executado."
 else
@@ -159,6 +188,12 @@ else
   terraform apply -var-file="$TFVARS_FILE" -auto-approve tfplan
   [ $? -ne 0 ] && { fail "terraform apply falhou"; exit 2; }
   ok "apply concluído"
+
+  # Clean up snapshot file after successful apply
+  if [ -n "$RESTORE_SNAPSHOT" ] && [ -f "$SNAPSHOT_FILE" ]; then
+    rm "$SNAPSHOT_FILE"
+    ok "Arquivo $SNAPSHOT_FILE removido (snapshot '$RESTORE_SNAPSHOT' utilizado)"
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -208,6 +243,14 @@ echo ""
 echo -e "  ${BLUE}-- DLQ --${NC}"
 print_output flights_dlq_arn
 print_output flights_dlq_url
+
+echo ""
+echo -e "  ${BLUE}-- RDS PostgreSQL --${NC}"
+print_output rds_endpoint
+print_output rds_port
+print_output rds_db_name
+print_output rds_security_group_id
+print_output rds_psql_connection true
 
 # ---------------------------------------------------------------------------
 # STEP 10: Post-deploy verification

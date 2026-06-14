@@ -1,0 +1,128 @@
+-- =============================================================================
+-- Flight Radar RDS PostgreSQL - Schema Initialization
+-- Lab schema for DMS data migration testing
+-- Run: psql -h <endpoint> -U <user> -d flightradar -f init_schema.sql
+-- =============================================================================
+
+CREATE SCHEMA IF NOT EXISTS flight_radar;
+SET search_path TO flight_radar;
+
+-- Aircraft registry dimension
+CREATE TABLE IF NOT EXISTS aircraft (
+    icao24          VARCHAR(6) PRIMARY KEY,
+    registration    VARCHAR(20),
+    aircraft_type   VARCHAR(10),
+    manufacturer    VARCHAR(50),
+    model           VARCHAR(50),
+    serial_number   VARCHAR(30),
+    operator_icao   VARCHAR(3),
+    operator_name   VARCHAR(100),
+    first_flight_date DATE,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Airport dimension
+CREATE TABLE IF NOT EXISTS airports (
+    icao_code   VARCHAR(4) PRIMARY KEY,
+    iata_code   VARCHAR(3),
+    name        VARCHAR(200),
+    city        VARCHAR(100),
+    country     VARCHAR(100),
+    country_code VARCHAR(2),
+    latitude    DECIMAL(10,7),
+    longitude   DECIMAL(10,7),
+    elevation_ft INTEGER,
+    timezone    VARCHAR(50),
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Airline dimension
+CREATE TABLE IF NOT EXISTS airlines (
+    icao_code   VARCHAR(3) PRIMARY KEY,
+    iata_code   VARCHAR(2),
+    name        VARCHAR(200),
+    country     VARCHAR(100),
+    callsign    VARCHAR(50),
+    is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Flight schedule / instance fact
+CREATE TABLE IF NOT EXISTS flights (
+    flight_id           BIGSERIAL PRIMARY KEY,
+    flight_number       VARCHAR(10),
+    airline_icao        VARCHAR(3) REFERENCES airlines(icao_code),
+    aircraft_icao24     VARCHAR(6) REFERENCES aircraft(icao24),
+    origin_airport      VARCHAR(4) REFERENCES airports(icao_code),
+    destination_airport VARCHAR(4) REFERENCES airports(icao_code),
+    scheduled_departure TIMESTAMPTZ,
+    scheduled_arrival   TIMESTAMPTZ,
+    actual_departure    TIMESTAMPTZ,
+    actual_arrival      TIMESTAMPTZ,
+    status              VARCHAR(20) NOT NULL DEFAULT 'scheduled',
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at          TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CONSTRAINT chk_status CHECK (status IN ('scheduled','active','landed','cancelled','diverted'))
+);
+
+-- High-volume position fact (mimics streaming data)
+CREATE TABLE IF NOT EXISTS aircraft_positions (
+    position_id     BIGSERIAL PRIMARY KEY,
+    aircraft_icao24 VARCHAR(6) NOT NULL REFERENCES aircraft(icao24),
+    flight_id       BIGINT REFERENCES flights(flight_id),
+    latitude        DECIMAL(10,7),
+    longitude       DECIMAL(10,7),
+    altitude_ft     INTEGER,
+    velocity_kts    DECIMAL(7,2),
+    heading         DECIMAL(5,2),
+    vertical_rate_fpm DECIMAL(7,2),
+    on_ground       BOOLEAN,
+    recorded_at     TIMESTAMPTZ NOT NULL,
+    ingested_at     TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- Indexes for query performance
+CREATE INDEX IF NOT EXISTS idx_positions_aircraft    ON aircraft_positions(aircraft_icao24);
+CREATE INDEX IF NOT EXISTS idx_positions_recorded    ON aircraft_positions(recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_flights_status        ON flights(status);
+CREATE INDEX IF NOT EXISTS idx_flights_aircraft      ON flights(aircraft_icao24);
+CREATE INDEX IF NOT EXISTS idx_flights_airline       ON flights(airline_icao);
+CREATE INDEX IF NOT EXISTS idx_flights_origin        ON flights(origin_airport);
+CREATE INDEX IF NOT EXISTS idx_flights_destination   ON flights(destination_airport);
+
+-- =============================================================================
+-- Sample seed data for lab testing
+-- =============================================================================
+
+INSERT INTO aircraft (icao24, registration, aircraft_type, manufacturer, model, operator_icao, operator_name) VALUES
+    ('a0f1b2', 'N12345', 'B738', 'Boeing', '737-800', 'AAL', 'American Airlines'),
+    ('a1b2c3', 'D-ABYT', 'A320', 'Airbus', 'A320-200', 'DLH', 'Lufthansa'),
+    ('b2c3d4', 'EC-MQU', 'A333', 'Airbus', 'A330-300', 'VLG', 'Vueling Airlines'),
+    ('c3d4e5', 'G-EUUK', 'A320', 'Airbus', 'A320-200', 'BAW', 'British Airways'),
+    ('d4e5f6', 'N67890', 'B77W', 'Boeing', '777-300ER', 'DAL', 'Delta Air Lines')
+ON CONFLICT (icao24) DO NOTHING;
+
+INSERT INTO airports (icao_code, iata_code, name, city, country, country_code, latitude, longitude, timezone) VALUES
+    ('KJFK', 'JFK', 'John F Kennedy International Airport', 'New York', 'United States', 'US', 40.639801, -73.778900, 'America/New_York'),
+    ('EGLL', 'LHR', 'London Heathrow Airport', 'London', 'United Kingdom', 'GB', 51.477500, -0.461389, 'Europe/London'),
+    ('LFPG', 'CDG', 'Paris Charles de Gaulle Airport', 'Paris', 'France', 'FR', 49.012798, 2.550000, 'Europe/Paris'),
+    ('EDDF', 'FRA', 'Frankfurt am Main Airport', 'Frankfurt', 'Germany', 'DE', 50.033333, 8.570556, 'Europe/Berlin'),
+    ('SBGR', 'GRU', 'São Paulo/Guarulhos International Airport', 'São Paulo', 'Brazil', 'BR', -23.435556, -46.473056, 'America/Sao_Paulo')
+ON CONFLICT (icao_code) DO NOTHING;
+
+INSERT INTO airlines (icao_code, iata_code, name, country, callsign) VALUES
+    ('AAL', 'AA', 'American Airlines', 'United States', 'AMERICAN'),
+    ('DAL', 'DL', 'Delta Air Lines', 'United States', 'DELTA'),
+    ('UAL', 'UA', 'United Airlines', 'United States', 'UNITED'),
+    ('BAW', 'BA', 'British Airways', 'United Kingdom', 'SPEEDBIRD'),
+    ('DLH', 'LH', 'Lufthansa', 'Germany', 'LUFTHANSA')
+ON CONFLICT (icao_code) DO NOTHING;
+
+INSERT INTO flights (flight_number, airline_icao, aircraft_icao24, origin_airport, destination_airport, scheduled_departure, scheduled_arrival, status) VALUES
+    ('AA100', 'AAL', 'a0f1b2', 'KJFK', 'EGLL', NOW() + INTERVAL '2 hours', NOW() + INTERVAL '9 hours', 'scheduled'),
+    ('BA200', 'BAW', 'c3d4e5', 'EGLL', 'LFPG', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '2 hours', 'scheduled'),
+    ('DLH300', 'DLH', 'a1b2c3', 'EDDF', 'SBGR', NOW() + INTERVAL '4 hours', NOW() + INTERVAL '14 hours', 'scheduled'),
+    ('DL400', 'DAL', 'd4e5f6', 'KJFK', 'LFPG', NOW() - INTERVAL '2 hours', NOW() + INTERVAL '5 hours', 'active'),
+    ('BA500', 'BAW', 'c3d4e5', 'LFPG', 'EGLL', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '3 hours', 'landed')
+ON CONFLICT DO NOTHING;
