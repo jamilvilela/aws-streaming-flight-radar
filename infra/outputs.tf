@@ -75,10 +75,65 @@ output "rds_psql_connection" {
   sensitive   = true
 }
 
+output "rds_admin_username" {
+  description = "RDS PostgreSQL admin username"
+  value       = module.rds_postgres.admin_username
+  sensitive   = true
+}
+
 output "rds_connection_string" {
   description = "JDBC connection string"
   value       = module.rds_postgres.connection_string
   sensitive   = true
+}
+
+# ============================================================================
+# DMS outputs
+# ============================================================================
+
+output "dms_replication_instance_arn" {
+  description = "ARN of the DMS replication instance"
+  value       = try(module.dms[0].replication_instance_arn, null)
+}
+
+output "dms_replication_instance_id" {
+  description = "ID of the DMS replication instance"
+  value       = try(module.dms[0].replication_instance_id, null)
+}
+
+output "dms_source_endpoint_arn" {
+  description = "ARN of the DMS source endpoint (RDS PostgreSQL)"
+  value       = try(module.dms[0].source_endpoint_arn, null)
+}
+
+output "dms_target_endpoint_arn" {
+  description = "ARN of the DMS target endpoint (S3 Parquet)"
+  value       = try(module.dms[0].target_endpoint_arn, null)
+}
+
+output "dms_task_arn" {
+  description = "ARN of the DMS replication task"
+  value       = try(module.dms[0].task_arn, null)
+}
+
+output "dms_task_id" {
+  description = "ID of the DMS replication task"
+  value       = try(module.dms[0].task_id, null)
+}
+
+output "dms_kms_key_arn" {
+  description = "ARN of the DMS KMS key"
+  value       = try(module.dms[0].kms_key_arn, null)
+}
+
+output "dms_secrets_manager_secret_arn" {
+  description = "ARN of the Secrets Manager secret (RDS credentials)"
+  value       = try(module.dms[0].secrets_manager_secret_arn, null)
+}
+
+output "dms_target_s3_path" {
+  description = "S3 path where DMS writes Parquet data"
+  value       = try(module.dms[0].target_s3_path, null)
 }
 
 output "rds_replicas" {

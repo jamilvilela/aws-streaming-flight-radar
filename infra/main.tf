@@ -132,6 +132,35 @@ module "rds_postgres" {
   tags = var.tags
 }
 
+module "dms" {
+  count  = var.dms_config.enabled ? 1 : 0
+  source = "./modules/dms"
+
+  project_name = var.project_name
+  environment  = var.environment
+  region       = var.aws_region
+
+  vpc_id              = var.rds_config.vpc_id
+  subnet_ids          = var.rds_config.subnet_ids
+  rds_security_group_id = module.rds_postgres.security_group_id
+
+  rds_endpoint = module.rds_postgres.db_endpoint
+  rds_port     = module.rds_postgres.db_port
+  rds_db_name  = module.rds_postgres.db_name
+
+  landing_bucket_name          = local.buckets.landing
+  replication_instance_class   = var.dms_config.replication_instance_class
+  replication_storage_gb       = var.dms_config.replication_storage_gb
+  replication_engine_version   = var.dms_config.engine_version
+
+  log_retention_days = 7
+  tags               = var.tags
+
+  depends_on = [
+    module.rds_postgres
+  ]
+}
+
 module "kinesis_analytics_flights" {
   source = "./modules/kinesis_analytics_flights"
 

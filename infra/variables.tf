@@ -236,6 +236,21 @@ variable "rds_admin_password" {
   default     = null
 }
 
+# ============================================================================
+# DMS configuration
+# ============================================================================
+
+variable "dms_config" {
+  description = "Configuration for AWS DMS replication (RDS PostgreSQL -> S3 Parquet)"
+  type = object({
+    replication_instance_class = optional(string, "dms.t3.micro")
+    replication_storage_gb     = optional(number, 50)
+    engine_version             = optional(string, "3.5.3")
+    enabled                    = optional(bool, false)
+  })
+  default = {}
+}
+
 variable "rds_config" {
   description = "Configuration for the RDS PostgreSQL instance"
   type = object({

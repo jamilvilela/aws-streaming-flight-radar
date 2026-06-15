@@ -98,6 +98,15 @@ rds_config = {
   ]  
 }
 
+################################################
+# DMS Configuration (disabled by default)
+dms_config = {
+  enabled                      = true
+  replication_instance_class   = "dms.t3.micro"
+  replication_storage_gb       = 50
+  engine_version               = "3.5.3"
+}
+
 alarm_thresholds = {
   kinesis_iterator_age_ms           = 60000
   kinesis_no_records_minutes        = 10

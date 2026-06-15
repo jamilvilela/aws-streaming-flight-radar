@@ -1,0 +1,14 @@
+version: 2
+
+secret:
+  ignored_paths:
+    # Developer-local credentials (gitignored, not deployed)
+    - 'credentials/'
+    # Deprecated/removed modules that are kept for reference only
+    - 'removed/'
+
+  ignored_matches:
+    - name: "Notebook — client_secret is a variable name read from env, not a literal secret"
+      match: "client_secret"
+    - name: "Notebook — grant_type is an OAuth2 parameter name, not a credential"
+      match: "grant_type"

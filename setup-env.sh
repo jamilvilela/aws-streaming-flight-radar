@@ -194,6 +194,20 @@ else
     rm "$SNAPSHOT_FILE"
     ok "Arquivo $SNAPSHOT_FILE removido (snapshot '$RESTORE_SNAPSHOT' utilizado)"
   fi
+
+  # Populate DMS Secrets Manager secret with RDS credentials
+  DMS_SECRET_NAME="${PROJECT_NAME}-dms-rds-credentials"
+  if [ -n "${RDS_ADMIN_PASSWORD:-}" ] && aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
+    RDS_USER="$(terraform output -raw rds_admin_username 2>/dev/null || echo "dbadmin")"
+    DMS_SECRET_VALUE="{\"username\":\"${RDS_USER}\",\"password\":\"${RDS_ADMIN_PASSWORD}\"}"
+    aws secretsmanager put-secret-value \
+      --secret-id "$DMS_SECRET_NAME" \
+      --secret-string "$DMS_SECRET_VALUE" \
+      --region "$AWS_REGION" &>/dev/null
+    ok "DMS secret '$DMS_SECRET_NAME' populated with RDS credentials"
+  elif [ -n "${RDS_ADMIN_PASSWORD:-}" ]; then
+    warn "DMS secret '$DMS_SECRET_NAME' not found (DMS disabled?). Skipping secret population."
+  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -249,8 +263,20 @@ echo -e "  ${BLUE}-- RDS PostgreSQL --${NC}"
 print_output rds_endpoint
 print_output rds_port
 print_output rds_db_name
+print_output rds_admin_username true
 print_output rds_security_group_id
 print_output rds_psql_connection true
+
+echo ""
+echo -e "  ${BLUE}-- DMS (Database Migration Service) --${NC}"
+print_output dms_replication_instance_id
+print_output dms_replication_instance_arn
+print_output dms_source_endpoint_arn
+print_output dms_target_endpoint_arn
+print_output dms_task_id
+print_output dms_task_arn
+print_output dms_target_s3_path
+print_output dms_secrets_manager_secret_arn
 
 # ---------------------------------------------------------------------------
 # STEP 10: Post-deploy verification
@@ -417,9 +443,35 @@ if [ "$APIGW_LG_COUNT" -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 10.7 KMS keys
+# 10.7 DMS
 # ---------------------------------------------------------------------------
-section "10.7 — KMS Keys"
+section "10.7 — DMS (Database Migration Service)"
+DMS_INSTANCES=$(aws dms describe-replication-instances --region "$REGION" \
+  --query "ReplicationInstances[?contains(ReplicationInstanceIdentifier, \`${PROJECT_NAME}\`)].{ID:ReplicationInstanceIdentifier,Status:ReplicationInstanceStatus}" \
+  --output json 2>/dev/null || echo "[]")
+DMS_COUNT=$(echo "$DMS_INSTANCES" | jq 'length')
+if [ "$DMS_COUNT" -gt 0 ]; then
+  ok "$DMS_COUNT DMS replication instance(s):"
+  echo "$DMS_INSTANCES" | jq -r '.[] | "   - \(.ID) (status: \(.Status))"'
+else
+  warn "Nenhuma DMS replication instance do projeto encontrada"
+fi
+
+DMS_TASKS=$(aws dms describe-replication-tasks --region "$REGION" \
+  --query "ReplicationTasks[?contains(ReplicationTaskIdentifier, \`${PROJECT_NAME}\`)].{ID:ReplicationTaskIdentifier,Status:Status}" \
+  --output json 2>/dev/null || echo "[]")
+DMS_TASK_COUNT=$(echo "$DMS_TASKS" | jq 'length')
+if [ "$DMS_TASK_COUNT" -gt 0 ]; then
+  ok "$DMS_TASK_COUNT DMS task(s):"
+  echo "$DMS_TASKS" | jq -r '.[] | "   - \(.ID) (status: \(.Status))"'
+else
+  warn "Nenhuma DMS task do projeto encontrada (pode ser intencional se DMS estiver desabilitado)"
+fi
+
+# ---------------------------------------------------------------------------
+# 10.8 KMS keys
+# ---------------------------------------------------------------------------
+section "10.8 — KMS Keys"
 KMS_KEYS=$(aws kms list-aliases --region "$REGION" \
   --query 'Aliases[?contains(AliasName, `'"$PROJECT_NAME"'`)].AliasName' \
   --output json 2>/dev/null || echo "[]")
