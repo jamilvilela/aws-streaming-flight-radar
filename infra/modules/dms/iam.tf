@@ -5,10 +5,11 @@ resource "aws_iam_role" "dms_vpc" {
   name               = "dms-vpc-role"
   assume_role_policy = data.aws_iam_policy_document.dms_vpc_assume_role.json
   description        = "Default DMS VPC management role"
+}
 
-  managed_policy_arns = [
-    "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonDMSVPCManagementRole"
-  ]
+resource "aws_iam_role_policy_attachment" "dms_vpc" {
+  role       = aws_iam_role.dms_vpc.name
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonDMSVPCManagementRole"
 }
 
 # ---------------------------------------------------------------------------

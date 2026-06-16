@@ -152,6 +152,71 @@ module "dms" {
   replication_instance_class   = var.dms_config.replication_instance_class
   replication_storage_gb       = var.dms_config.replication_storage_gb
   replication_engine_version   = var.dms_config.engine_version
+  dms_task_settings            = var.dms_config.dms_task_settings
+  table_mappings               = var.dms_config.table_mappings != null ? var.dms_config.table_mappings : jsonencode({
+    rules = [
+      {
+        rule_type     = "selection"
+        rule_id       = "1"
+        rule_name     = "flight_radar_aircraft"
+        object_locator = {
+          schema_name = module.rds_postgres.rds_db_name
+          table_name  = "aircraft"
+        }
+        rule_action   = "include"
+      },
+      {
+        rule_type     = "selection"
+        rule_id       = "2"
+        rule_name     = "flight_radar_airports"
+        object_locator = {
+          schema_name = module.rds_postgres.rds_db_name
+          table_name  = "airports"
+        }
+        rule_action   = "include"
+      },
+      {
+        rule_type     = "selection"
+        rule_id       = "3"
+        rule_name     = "flight_radar_airlines"
+        object_locator = {
+          schema_name = module.rds_postgres.rds_db_name
+          table_name  = "airlines"
+        }
+        rule_action   = "include"
+      },
+      {
+        rule_type     = "selection"
+        rule_id       = "4"
+        rule_name     = "flight_radar_flights"
+        object_locator = {
+          schema_name = module.rds_postgres.rds_db_name
+          table_name  = "flights"
+        }
+        rule_action   = "include"
+      },
+      {
+        rule_type     = "selection"
+        rule_id       = "5"
+        rule_name     = "flight_radar_positions"
+        object_locator = {
+          schema_name = module.rds_postgres.rds_db_name
+          table_name  = "aircraft_positions"
+        }
+        rule_action   = "include"
+      },
+      {
+        rule_type     = "selection"
+        rule_id       = "6"
+        rule_name     = "exclude_dms_control"
+        object_locator = {
+          schema_name = "dms_control"
+          table_name  = "%"
+        }
+        rule_action   = "exclude"
+      }
+    ]
+  })
 
   log_retention_days = 7
   tags               = var.tags

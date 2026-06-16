@@ -40,8 +40,8 @@ resource "aws_dms_replication_instance" "this" {
 
   publicly_accessible         = false
   multi_az                    = false
-  auto_minor_version_upgrade  = false
-  allow_major_version_upgrade = false
+  auto_minor_version_upgrade  = true
+  allow_major_version_upgrade = true
   apply_immediately           = true
 
   kms_key_arn = aws_kms_key.dms.arn
@@ -59,20 +59,41 @@ resource "aws_security_group" "dms" {
   description = "Security group for DMS replication instance"
   vpc_id      = var.vpc_id
 
+  # ---------------------------------------------------------------
+  # Ingress — apenas do security group do RDS PostgreSQL (porta 5432)
+  # O DMS conecta-se ao RDS como origem; esta regra permite que o RDS
+  # se comunique de volta com o DMS para health checks e replicação.
+  # ---------------------------------------------------------------
   ingress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-    description = "DMS internal traffic"
+    from_port       = var.rds_port
+    to_port         = var.rds_port
+    protocol        = "tcp"
+    security_groups = [var.rds_security_group_id]
+    description     = "Allow inbound from RDS PostgreSQL security group"
   }
 
+  # ---------------------------------------------------------------
+  # Egress — HTTPS para AWS Services (S3, CloudWatch, Secrets Mgr, KMS)
+  # Como não há VPC Endpoints, o DMS alcança esses serviços via
+  # internet com tráfego criptografado (porta 443).
+  # ---------------------------------------------------------------
   egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
     cidr_blocks = ["0.0.0.0/0"]
-    description = "Allow all outbound traffic"
+    description = "Allow HTTPS outbound to AWS services (S3, CloudWatch, Secrets Manager, KMS)"
+  }
+
+  # ---------------------------------------------------------------
+  # Egress — PostgreSQL para o CIDR do VPC (RDS source)
+  # ---------------------------------------------------------------
+  egress {
+    from_port   = var.rds_port
+    to_port     = var.rds_port
+    protocol    = "tcp"
+    cidr_blocks = [data.aws_vpc.this.cidr_block]
+    description = "Allow outbound to RDS PostgreSQL"
   }
 
   tags = merge(var.tags, {
@@ -97,7 +118,7 @@ resource "aws_dms_endpoint" "source" {
 
   postgres_settings {
     capture_ddls           = true
-    slot_name              = "${var.project_name}_dms_slot"
+    slot_name              = "${var.project_name}-dms-slot"
     fail_tasks_on_lob_truncation = false
   }
 
@@ -114,7 +135,7 @@ resource "aws_dms_s3_endpoint" "target" {
   endpoint_type                    = "target"
   service_access_role_arn          = aws_iam_role.dms_s3.arn
   bucket_name                      = var.landing_bucket_name
-  bucket_folder                    = "dms/flights/"
+  bucket_folder                    = "dms/${var.rds_db_name}/"
   data_format                      = "parquet"
   parquet_version                  = "parquet-2-0"
   compression_type                 = "gzip"
@@ -125,7 +146,7 @@ resource "aws_dms_s3_endpoint" "target" {
   cdc_max_batch_interval           = 60
   timestamp_column_name            = "dms_timestamp"
   preserve_transactions            = false
-  glue_catalog_generation          = true
+  glue_catalog_generation          = false
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-dms-target-s3"
@@ -169,18 +190,18 @@ resource "aws_dms_replication_task" "this" {
       LoadMaxFileSize = 0
       ParallelLoadThreads = 8
       ParallelLoadBufferSize = 50
-      BatchApplyEnabled = false
+      BatchApplyEnabled = true
       TaskRecoveryTableEnabled = true
-      ParallelApplyThreads = 0
-      ParallelApplyBufferSize = 0
+      ParallelApplyThreads = 8
+      ParallelApplyBufferSize = 100
       FullLoadTransactionSize = 10000
       CharLengthSemantics = "BYTE"
     }
     FullLoadSettings = {
-      TargetTablePrepMode = "DO_NOTHING"
+      TargetTablePrepMode = "TRUNCATE_BEFORE_LOAD"
       CreatePkAfterFullLoad = false
-      StopTaskCachedChangesNotApplied = false
-      StopTaskCachedChangesApplied = false
+      StopTaskCachedChangesNotApplied = true
+      StopTaskCachedChangesApplied = true
       MaxFullLoadSubTasks = 8
       TransactionConsistencyTimeout = 600
       CommitRate = 10000

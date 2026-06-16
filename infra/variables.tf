@@ -247,6 +247,9 @@ variable "dms_config" {
     replication_storage_gb     = optional(number, 50)
     engine_version             = optional(string, "3.5.3")
     enabled                    = optional(bool, false)
+    table_mappings             = optional(string)
+    dms_task_settings          = optional(string)
+    full_load_instance_class   = optional(string)
   })
   default = {}
 }
