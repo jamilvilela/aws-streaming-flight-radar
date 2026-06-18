@@ -156,64 +156,64 @@ module "dms" {
   table_mappings               = var.dms_config.table_mappings != null ? var.dms_config.table_mappings : jsonencode({
     rules = [
       {
-        rule_type     = "selection"
-        rule_id       = "1"
-        rule_name     = "flight_radar_aircraft"
-        object_locator = {
-          schema_name = module.rds_postgres.rds_db_name
-          table_name  = "aircraft"
+        "rule-type"     = "selection"
+        "rule-id"       = "1"
+        "rule-name"     = "flight_radar_aircraft"
+        "object-locator" = {
+          "schema-name" = "flight_radar"
+          "table-name"  = "aircraft"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       },
       {
-        rule_type     = "selection"
-        rule_id       = "2"
-        rule_name     = "flight_radar_airports"
-        object_locator = {
-          schema_name = module.rds_postgres.rds_db_name
-          table_name  = "airports"
+        "rule-type"     = "selection"
+        "rule-id"       = "2"
+        "rule-name"     = "flight_radar_airports"
+        "object-locator" = {
+          "schema-name" = "flight_radar"
+          "table-name"  = "airports"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       },
       {
-        rule_type     = "selection"
-        rule_id       = "3"
-        rule_name     = "flight_radar_airlines"
-        object_locator = {
-          schema_name = module.rds_postgres.rds_db_name
-          table_name  = "airlines"
+        "rule-type"     = "selection"
+        "rule-id"       = "3"
+        "rule-name"     = "flight_radar_airlines"
+        "object-locator" = {
+          "schema-name" = "flight_radar"
+          "table-name"  = "airlines"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       },
       {
-        rule_type     = "selection"
-        rule_id       = "4"
-        rule_name     = "flight_radar_flights"
-        object_locator = {
-          schema_name = module.rds_postgres.rds_db_name
-          table_name  = "flights"
+        "rule-type"     = "selection"
+        "rule-id"       = "4"
+        "rule-name"     = "flight_radar_flights"
+        "object-locator" = {
+          "schema-name" = "flight_radar"
+          "table-name"  = "flights"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       },
       {
-        rule_type     = "selection"
-        rule_id       = "5"
-        rule_name     = "flight_radar_positions"
-        object_locator = {
-          schema_name = module.rds_postgres.rds_db_name
-          table_name  = "aircraft_positions"
+        "rule-type"     = "selection"
+        "rule-id"       = "5"
+        "rule-name"     = "flight_radar_positions"
+        "object-locator" = {
+          "schema-name" = "flight_radar"
+          "table-name"  = "aircraft_positions"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       },
       {
-        rule_type     = "selection"
-        rule_id       = "6"
-        rule_name     = "exclude_dms_control"
-        object_locator = {
-          schema_name = "dms_control"
-          table_name  = "%"
+        "rule-type"     = "selection"
+        "rule-id"       = "6"
+        "rule-name"     = "exclude_dms_control"
+        "object-locator" = {
+          "schema-name" = "dms_control"
+          "table-name"  = "%"
         }
-        rule_action   = "exclude"
+        "rule-action"   = "exclude"
       }
     ]
   })

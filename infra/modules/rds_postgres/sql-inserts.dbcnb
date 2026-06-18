@@ -1,40 +1,31 @@
 cells:
   - kind: 2
     languageId: sql
-    value: "\r
-
-      INSERT INTO aircraft (icao24, registration, aircraft_type, manufacturer,
-      model, operator_icao, operator_name) VALUES\r
-
-      \    ('a0f1b2', 'N12345', 'B738', 'Boeing', '737-800', 'AAL', 'American
-      Airlines'),\r
-
-      \    ('a1b2c3', 'D-ABYT', 'A320', 'Airbus', 'A320-200', 'DLH',
-      'Lufthansa'),\r
-
-      \    ('b2c3d4', 'EC-MQU', 'A333', 'Airbus', 'A330-300', 'VLG', 'Vueling
-      Airlines'),\r
-
-      \    ('c3d4e5', 'G-EUUK', 'A320', 'Airbus', 'A320-200', 'BAW', 'British
-      Airways'),\r
-
-      \    ('d4e5f6', 'N67890', 'B77W', 'Boeing', '777-300ER', 'DAL', 'Delta Air
-      Lines')\r
-
-      ON CONFLICT (icao24) DO NOTHING;"
-    metadata: {}
-  - kind: 2
-    languageId: sql
     value: select * from aircraft;
     metadata: {}
   - kind: 2
     languageId: sql
-    value: select * from information_schema.tables where table_schema =
-      'flight_radar';
+    value: "\r
+
+      SELECT ap.position_id, ap.aircraft_icao24, f.flight_number, ap.latitude,
+      ap.longitude, ap.altitude_ft, ap.velocity_kts, ap.heading, ap.on_ground,
+      ap.recorded_at\r
+
+      FROM aircraft_positions ap\r
+
+      LEFT JOIN flights f ON ap.flight_id = f.flight_id\r
+
+      ORDER BY ap.recorded_at;"
     metadata: {}
   - kind: 2
     languageId: sql
-    value: ""
+    value: |
+      -- Verify: count positions per aircraft and show sample data
+      SELECT a.icao24, a.registration, COUNT(ap.position_id) AS num_positions
+      FROM aircraft a
+      LEFT JOIN aircraft_positions ap ON a.icao24 = ap.aircraft_icao24
+      GROUP BY a.icao24, a.registration
+      ORDER BY a.icao24;
     metadata: {}
 metadata:
   conn:

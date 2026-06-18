@@ -64,7 +64,7 @@ variable "replication_storage_gb" {
 variable "replication_engine_version" {
   description = "DMS replication engine version"
   type        = string
-  default     = "3.5.3"
+  default     = "3.5.4"
 }
 
 variable "dms_task_settings" {

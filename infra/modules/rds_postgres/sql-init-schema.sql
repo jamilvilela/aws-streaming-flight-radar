@@ -126,3 +126,32 @@ INSERT INTO flights (flight_number, airline_icao, aircraft_icao24, origin_airpor
     ('DL400', 'DAL', 'd4e5f6', 'KJFK', 'LFPG', NOW() - INTERVAL '2 hours', NOW() + INTERVAL '5 hours', 'active'),
     ('BA500', 'BAW', 'c3d4e5', 'LFPG', 'EGLL', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '3 hours', 'landed')
 ON CONFLICT DO NOTHING;
+
+INSERT INTO aircraft_positions (aircraft_icao24, flight_id, latitude, longitude, altitude_ft, velocity_kts, heading, vertical_rate_fpm, on_ground, recorded_at) VALUES
+    -- DL400 (Delta, d4e5f6 / B77W) - JFK→CDG, voo ativo, cruising over Atlantic at 37000ft
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 42.5000000, -50.0000000, 37000, 485, 75, 0, FALSE, NOW() - INTERVAL '1 hour'),
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 44.2000000, -40.0000000, 37000, 490, 78, 0, FALSE, NOW() - INTERVAL '45 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 46.1000000, -30.0000000, 37000, 488, 80, 0, FALSE, NOW() - INTERVAL '30 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 47.8000000, -20.0000000, 37000, 492, 82, 0, FALSE, NOW() - INTERVAL '15 minutes'),
+    -- climbing out of JFK (departed 2h ago)
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 40.6398010, -73.7789000, 150, 180, 145, 1200, TRUE, NOW() - INTERVAL '2 hours'),
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 41.0000000, -72.5000000, 8500, 250, 90, 1800, FALSE, NOW() - INTERVAL '1 hour 50 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 41.5000000, -70.0000000, 22000, 380, 85, 1500, FALSE, NOW() - INTERVAL '1 hour 40 minutes'),
+
+    -- BA500 (British Airways, c3d4e5 / A320) - CDG→LGR, já pousou, on ground at LHR
+    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '3 hours'),
+    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '2 hours'),
+    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '1 hour'),
+
+    -- AA100 (American, a0f1b2 / B738) - JFK→LHR, scheduled, pushing back from gate
+    ('a0f1b2', (SELECT flight_id FROM flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '10 minutes'),
+    ('a0f1b2', (SELECT flight_id FROM flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '15 minutes'),
+
+    -- BA200 (British Airways, c3d4e5 / A320) - LHR→CDG, scheduled, taxiing
+    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 15, 210, 0, TRUE, NOW() + INTERVAL '30 minutes'),
+    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 5, 180, 0, TRUE, NOW() + INTERVAL '40 minutes'),
+
+    -- DLH300 (Lufthansa, a1b2c3 / A320) - FRA→GRU, scheduled long haul, at gate
+    ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours'),
+    ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours 30 minutes')
+ON CONFLICT DO NOTHING;

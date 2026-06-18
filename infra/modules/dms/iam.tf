@@ -12,6 +12,15 @@ resource "aws_iam_role_policy_attachment" "dms_vpc" {
   policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonDMSVPCManagementRole"
 }
 
+# Additional EC2 permissions required by DMS for VPC management.
+# The AWS-managed AmazonDMSVPCManagementRole may not cover all actions
+# that DMS needs when creating network interfaces in the VPC.
+resource "aws_iam_role_policy" "dms_vpc_ec2" {
+  name   = "dms-vpc-ec2-permissions"
+  role   = aws_iam_role.dms_vpc.name
+  policy = data.aws_iam_policy_document.dms_vpc_ec2.json
+}
+
 # ---------------------------------------------------------------------------
 # DMS CloudWatch Logs role
 # ---------------------------------------------------------------------------

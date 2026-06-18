@@ -46,6 +46,13 @@ resource "aws_dms_replication_instance" "this" {
 
   kms_key_arn = aws_kms_key.dms.arn
 
+  # Ensure dms-vpc-role and its policies are fully propagated
+  # before DMS attempts to use them. DMS validates the role at creation time.
+  depends_on = [
+    aws_iam_role_policy_attachment.dms_vpc,
+    aws_iam_role_policy.dms_vpc_ec2
+  ]
+
   tags = merge(var.tags, {
     Name = "${var.project_name}-dms-replication-instance"
   })
@@ -74,8 +81,9 @@ resource "aws_security_group" "dms" {
 
   # ---------------------------------------------------------------
   # Egress — HTTPS para AWS Services (S3, CloudWatch, Secrets Mgr, KMS)
-  # Como não há VPC Endpoints, o DMS alcança esses serviços via
-  # internet com tráfego criptografado (porta 443).
+  # Secrets Manager tem VPC Interface Endpoint (PrivateLink). S3,
+  # CloudWatch e KMS usam internet mas não há rota válida (IGW descarta
+  # tráfego de instâncias sem IP público). O tráfego é criptografado.
   # ---------------------------------------------------------------
   egress {
     from_port   = 443
@@ -109,8 +117,6 @@ resource "aws_dms_endpoint" "source" {
   endpoint_type = "source"
   engine_name   = "postgres"
   database_name = var.rds_db_name
-  port          = var.rds_port
-  server_name   = var.rds_endpoint
   ssl_mode      = "require"
 
   secrets_manager_access_role_arn = aws_iam_role.dms_s3.arn
@@ -118,7 +124,8 @@ resource "aws_dms_endpoint" "source" {
 
   postgres_settings {
     capture_ddls           = true
-    slot_name              = "${var.project_name}-dms-slot"
+    # PostgreSQL logical replication slot name: hyphens not allowed by DMS
+    slot_name              = "${replace(var.project_name, "-", "_")}_dms_slot"
     fail_tasks_on_lob_truncation = false
   }
 
@@ -166,45 +173,34 @@ resource "aws_dms_replication_task" "this" {
   table_mappings             = var.table_mappings != null ? var.table_mappings : jsonencode({
     rules = [
       {
-        rule_type     = "selection"
-        rule_id       = "1"
-        rule_name     = "default"
-        object_locator = {
-          schema_name = "%"
-          table_name  = "%"
+        "rule-type"     = "selection"
+        "rule-id"       = "1"
+        "rule-name"     = "default"
+        "object-locator" = {
+          "schema-name" = "%"
+          "table-name"  = "%"
         }
-        rule_action   = "include"
+        "rule-action"   = "include"
       }
     ]
   })
 
   replication_task_settings = var.dms_task_settings != null ? var.dms_task_settings : jsonencode({
     TargetMetadata = {
-      TargetSchema = ""
-      SupportLobs = true
-      FullLobMode = false
-      LobChunkSize = 64
-      LimitedSizeLobMode = true
-      LobMaxSize = 32
-      InlineLobMaxSize = 0
-      LoadMaxFileSize = 0
-      ParallelLoadThreads = 8
-      ParallelLoadBufferSize = 50
-      BatchApplyEnabled = true
-      TaskRecoveryTableEnabled = true
-      ParallelApplyThreads = 8
-      ParallelApplyBufferSize = 100
-      FullLoadTransactionSize = 10000
-      CharLengthSemantics = "BYTE"
+      # LOB settings — supported for S3 target
+      SupportLobs         = true
+      FullLobMode         = false
+      LimitedSizeLobMode  = true
+      LobMaxSize          = 32
+      LobChunkSize        = 64
+      InlineLobMaxSize    = 0
+      LoadMaxFileSize     = 0
     }
     FullLoadSettings = {
-      TargetTablePrepMode = "TRUNCATE_BEFORE_LOAD"
-      CreatePkAfterFullLoad = false
+      TargetTablePrepMode             = "DO_NOTHING"
       StopTaskCachedChangesNotApplied = true
-      StopTaskCachedChangesApplied = true
-      MaxFullLoadSubTasks = 8
-      TransactionConsistencyTimeout = 600
-      CommitRate = 10000
+      StopTaskCachedChangesApplied    = true
+      MaxFullLoadSubTasks             = 8
     }
     Logging = {
       EnableLogging = true
@@ -234,38 +230,10 @@ resource "aws_dms_replication_task" "this" {
           Severity = "LOGGER_SEVERITY_DEFAULT"
         },
         {
-          Id = "TASK_RECOVERY"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "RESTART"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "TASK_PROGRESS"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
           Id = "DATA_STRUCTURE"
           Severity = "LOGGER_SEVERITY_DEFAULT"
         }
       ]
-    }
-    BeforeImageSettings = {
-      EnableBeforeImage = true
-      FieldName = "dms_before_image"
-      ColumnFilter = "pk-only"
-    }
-    ChangeProcessingDdlHandlingPolicy = {
-      HandleSourceTableDropped = false
-      HandleSourceTableTruncated = true
-      HandleSourceTableAltered = true
-    }
-    ControlTablesettings = {
-      historyTimeslotInMinutes = 5
-      ControlSchema = "dms_control"
-      HistoryTimeslotInMinutes = 5
-      StatusIntervalInMinutes = 1
     }
   })
 
@@ -304,5 +272,60 @@ resource "aws_cloudwatch_log_group" "dms" {
 
   tags = merge(var.tags, {
     Name = "${var.project_name}-dms-log-group"
+  })
+}
+
+# ---------------------------------------------------------------------------
+# VPC Endpoint — Secrets Manager (Interface via PrivateLink)
+# O DMS precisa acessar o Secrets Manager para buscar as credenciais do RDS.
+# O Secrets Manager em us-east-1 só suporta Interface endpoint (não Gateway).
+# ---------------------------------------------------------------------------
+resource "aws_security_group" "secrets_endpoint" {
+  name        = "${var.project_name}-dms-secrets-vpce-sg"
+  description = "Security group for Secrets Manager VPC Endpoint"
+  vpc_id      = var.vpc_id
+
+  ingress {
+    from_port       = 443
+    to_port         = 443
+    protocol        = "tcp"
+    security_groups = [aws_security_group.dms.id]
+    description     = "Allow HTTPS from DMS replication instance"
+  }
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-dms-secrets-vpce-sg"
+  })
+}
+
+resource "aws_vpc_endpoint" "secrets_manager" {
+  vpc_id              = var.vpc_id
+  service_name        = "com.amazonaws.${var.region}.secretsmanager"
+  vpc_endpoint_type   = "Interface"
+
+  subnet_ids          = var.subnet_ids
+  security_group_ids  = [aws_security_group.secrets_endpoint.id]
+
+  private_dns_enabled = true
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-dms-secrets-vpce"
+  })
+}
+
+# ---------------------------------------------------------------------------
+# VPC Endpoint — S3 (Gateway — gratuito)
+# O DMS precisa escrever os dados de replicação no bucket S3 de destino.
+# Gateway Endpoint é gratuito e não requer Security Group nem subnets.
+# ---------------------------------------------------------------------------
+resource "aws_vpc_endpoint" "s3" {
+  vpc_id            = var.vpc_id
+  service_name      = "com.amazonaws.${var.region}.s3"
+  vpc_endpoint_type  = "Gateway"
+
+  route_table_ids   = data.aws_route_tables.dms.ids
+
+  tags = merge(var.tags, {
+    Name = "${var.project_name}-dms-s3-vpce"
   })
 }
