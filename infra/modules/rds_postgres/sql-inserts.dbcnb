@@ -27,6 +27,21 @@ cells:
       GROUP BY a.icao24, a.registration
       ORDER BY a.icao24;
     metadata: {}
+  - kind: 2
+    languageId: sql
+    value: "\r
+
+      INSERT INTO airlines (icao_code, iata_code, name, country, callsign)
+      VALUES\r
+
+      \    ('YYY', 'AA', 'American Airlines', 'United States', 'AMERICAN')\r
+
+      ON CONFLICT (icao_code) DO NOTHING;"
+    metadata: {}
+  - kind: 2
+    languageId: sql
+    value: ""
+    metadata: {}
 metadata:
   conn:
     id: i5VUGIHs1VWo2RLBc6LTh

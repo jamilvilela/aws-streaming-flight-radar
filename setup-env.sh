@@ -205,32 +205,104 @@ terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 ok "plan concluído (salvo em tfplan)"
 
 # ---------------------------------------------------------------------------
-# STEP 7.5 — Check for RDS snapshot to restore
+# STEP 7.5 — Check for RDS snapshot to restore (from local ID, S3, or auto-discovery)
 # ---------------------------------------------------------------------------
 RESTORE_SNAPSHOT=""
+AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
+S3_BUCKET="lakehouse-workspace-${AWS_ACCOUNT_ID}"
+S3_PREFIX="rds-snapshots"
 SNAPSHOT_FILE=".rds-snapshot-id"
-if [ -f "$SNAPSHOT_FILE" ]; then
-  SNAPSHOT_ID=$(cat "$SNAPSHOT_FILE")
-  if [ -n "$SNAPSHOT_ID" ]; then
-    echo -e "  ${BLUE}💾 Snapshot encontrado: $SNAPSHOT_ID${NC}"
-    if aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" &>/dev/null; then
-      SNAPSHOT_STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SNAPSHOT_ID" --query 'DBSnapshots[0].Status' --output text)
-      if [ "$SNAPSHOT_STATUS" = "available" ]; then
-        export TF_VAR_rds_snapshot_identifier="$SNAPSHOT_ID"
-        RESTORE_SNAPSHOT="$SNAPSHOT_ID"
-        ok "RDS será restaurado do snapshot '$SNAPSHOT_ID'"
-      else
-        warn "Snapshot '$SNAPSHOT_ID' tem status '$SNAPSHOT_STATUS' (esperado: available). Ignorando."
+
+resolve_snapshot() {
+  local SID=""
+
+  # 1) Try local .rds-snapshot-id file (written by rollback-setup.sh)
+  if [ -f "$SNAPSHOT_FILE" ]; then
+    SID=$(cat "$SNAPSHOT_FILE")
+    if [ -n "$SID" ] && aws rds describe-db-snapshots --db-snapshot-identifier "$SID" &>/dev/null; then
+      local STATUS
+      STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SID" --query 'DBSnapshots[0].Status' --output text)
+      if [ "$STATUS" = "available" ]; then
+        echo "$SID"
+        return 0
       fi
+      warn "Snapshot '$SID' do arquivo local tem status '$STATUS' (esperado: available)."
     else
-      warn "Snapshot '$SNAPSHOT_ID' não encontrado na conta. Ignorando (RDS será criado vazio)."
+      warn "Snapshot '$SID' do arquivo local não encontrado na conta."
     fi
+  fi
+
+  # 2) Fallback: auto-discover the latest manual snapshot for this project
+  echo -e "  ${BLUE}🔍 Procurando snapshot manual mais recente...${NC}"
+  SID=$(aws rds describe-db-snapshots \
+    --snapshot-type manual \
+    --query "reverse(sort_by(DBSnapshots, &SnapshotCreateTime))[0].DBSnapshotIdentifier" \
+    --output text 2>/dev/null)
+  if [ -n "$SID" ] && [ "$SID" != "None" ] && [ "$SID" != "$SNAPSHOT_ID_OLD" ]; then
+    local STATUS
+    STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SID" --query 'DBSnapshots[0].Status' --output text 2>/dev/null)
+    if [ "$STATUS" = "available" ]; then
+      echo "$SID"
+      return 0
+    fi
+  fi
+
+  # 3) Notify about S3 export as last resort reference
+  echo -e "  ${YELLOW}ℹ️  Nenhum snapshot RDS manual encontrado.${NC}"
+  echo "   Verifique se há export em s3://$S3_BUCKET/$S3_PREFIX/"
+  echo "   O RDS será criado vazio (sem restore)."
+  echo ""
+  return 1
+}
+
+FOUND_SNAPSHOT=$(resolve_snapshot)
+if [ -n "$FOUND_SNAPSHOT" ]; then
+  SNAPSHOT_ID="$FOUND_SNAPSHOT"
+  # Save so subsequent runs find it faster
+  echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE" 2>/dev/null
+  export TF_VAR_rds_snapshot_identifier="$SNAPSHOT_ID"
+  RESTORE_SNAPSHOT="$SNAPSHOT_ID"
+  ok "RDS será restaurado do snapshot '$SNAPSHOT_ID'"
+
+  # Check if there's also an S3 export available
+  if aws s3 ls "s3://$S3_BUCKET/$S3_PREFIX/" &>/dev/null; then
+    ok "Snapshot exportado também em s3://$S3_BUCKET/$S3_PREFIX/ (pode ser usado para Athena/analytics)"
   fi
 fi
 
 if [ "$SKIP_APPLY" -eq 1 ]; then
   warn "--skip-apply informado; apply não será executado."
 else
+  # -------------------------------------------------------------------------
+  # STEP 7.6 — Ensure DMS secret exists (data source, not managed by TF)
+  # -------------------------------------------------------------------------
+  PROJECT_NAME="${PROJECT_NAME:-${TF_VAR_project_name:-$(grep -E '^project_name' "$TFVARS_FILE" | head -1 | cut -d= -f2 | tr -d ' \"')}}"
+  DMS_SECRET_NAME="${PROJECT_NAME}-dms-rds-credentials"
+
+  if ! aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
+    echo -e "  ${BLUE}🔐 Criando secret $DMS_SECRET_NAME...${NC}"
+    aws secretsmanager create-secret \
+      --name "$DMS_SECRET_NAME" \
+      --description "RDS PostgreSQL credentials for DMS source endpoint (created by setup-env.sh)" \
+      --secret-string '{"username":"placeholder","password":"placeholder"}' \
+      --region "$AWS_REGION" > /dev/null
+    ok "Secret $DMS_SECRET_NAME criado"
+  else
+    # Se existir mas estiver agendado para deleção, restaura
+    DELETION_DATE=$(aws secretsmanager describe-secret \
+      --secret-id "$DMS_SECRET_NAME" \
+      --query 'DeletedDate' --output text --region "$AWS_REGION" 2>/dev/null)
+    if [ -n "$DELETION_DATE" ] && [ "$DELETION_DATE" != "None" ]; then
+      echo -e "  ${BLUE}♻️  Restaurando secret $DMS_SECRET_NAME (agendado para deleção)...${NC}"
+      aws secretsmanager restore-secret \
+        --secret-id "$DMS_SECRET_NAME" \
+        --region "$AWS_REGION" > /dev/null
+      ok "Secret restaurado"
+    else
+      ok "Secret $DMS_SECRET_NAME já existe"
+    fi
+  fi
+
   section "STEP 8 — terraform apply"
   terraform apply -var-file="$TFVARS_FILE" -auto-approve tfplan
   [ $? -ne 0 ] && { fail "terraform apply falhou"; exit 2; }
@@ -243,9 +315,7 @@ else
   fi
 
   # Populate DMS Secrets Manager secret with RDS credentials
-  PROJECT_NAME="${PROJECT_NAME:-${TF_VAR_project_name:-$(grep -E '^project_name' "$TFVARS_FILE" | head -1 | cut -d= -f2 | tr -d ' \"')}}"
-  DMS_SECRET_NAME="${PROJECT_NAME}-dms-rds-credentials"
-  if [ -n "${RDS_ADMIN_PASSWORD:-}" ] && aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
+  if [ -n "${RDS_ADMIN_PASSWORD:-}" ]; then
     RDS_USER="$(terraform output -raw rds_admin_username 2>/dev/null || echo "dbadmin")"
     RDS_ENDPOINT="$(terraform output -raw rds_endpoint 2>/dev/null || echo "")"
     RDS_PORT="$(terraform output -raw rds_port 2>/dev/null || echo "5432")"
@@ -258,6 +328,28 @@ else
     ok "DMS secret '$DMS_SECRET_NAME' populated with RDS credentials (host/port/dbname included)"
   elif [ -n "${RDS_ADMIN_PASSWORD:-}" ]; then
     warn "DMS secret '$DMS_SECRET_NAME' not found (DMS disabled?). Skipping secret population."
+  fi
+
+  # -------------------------------------------------------------------------
+  # STEP 8.5 — Reboot RDS if restored from snapshot (apply parameter group)
+  # -------------------------------------------------------------------------
+  if [ -n "$RESTORE_SNAPSHOT" ]; then
+    RDS_IDENTIFIER="${PROJECT_NAME}-postgres"
+    echo -e "  ${BLUE}🔄 Snapshot restaurado — reiniciando RDS para aplicar parameter group...${NC}"
+    echo "   (rds.logical_replication=1 e logical_decoding_work_mem=65536 precisam de reboot)"
+
+    # Small wait for RDS to be fully available after apply
+    sleep 15
+
+    aws rds reboot-db-instance \
+      --db-instance-identifier "$RDS_IDENTIFIER" \
+      --region "$AWS_REGION" > /dev/null
+
+    echo -e "  ${BLUE}⏳ Aguardando reboot do RDS...${NC}"
+    aws rds wait db-instance-available \
+      --db-instance-identifier "$RDS_IDENTIFIER" \
+      --region "$AWS_REGION"
+    ok "RDS reiniciado. Parâmetros de logical replication ativos."
   fi
 fi
 

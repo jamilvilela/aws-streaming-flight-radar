@@ -17,6 +17,7 @@ scripts/
 mcp_config.json
 settings.json
 opencode.json
+infra/.rds-state-addresses
 
 
 *.exe

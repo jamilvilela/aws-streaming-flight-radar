@@ -1,16 +1,10 @@
 # ---------------------------------------------------------------------------
 # Secrets Manager — RDS PostgreSQL credentials for DMS source endpoint
-# The secret is created empty; setup-env.sh populates it from .env values
-# after apply, so credentials never appear in Terraform state or HCL.
+# O secret é criado pelo setup-env.sh (via AWS CLI) antes do apply.
+# O Terraform apenas lê o secret existente — não gerencia ciclo de vida.
 # ---------------------------------------------------------------------------
-resource "aws_secretsmanager_secret" "rds_credentials" {
-  name                    = "${var.project_name}-dms-rds-credentials"
-  description             = "RDS PostgreSQL credentials for DMS source endpoint"
-  recovery_window_in_days = 7
-
-  tags = merge(var.tags, {
-    Name = "${var.project_name}-dms-rds-credentials"
-  })
+data "aws_secretsmanager_secret" "rds_credentials" {
+  name = "${var.project_name}-dms-rds-credentials"
 }
 
 # ---------------------------------------------------------------------------
@@ -120,13 +114,15 @@ resource "aws_dms_endpoint" "source" {
   ssl_mode      = "require"
 
   secrets_manager_access_role_arn = aws_iam_role.dms_s3.arn
-  secrets_manager_arn             = aws_secretsmanager_secret.rds_credentials.arn
+  secrets_manager_arn             = data.aws_secretsmanager_secret.rds_credentials.arn
 
   postgres_settings {
-    capture_ddls           = true
-    # PostgreSQL logical replication slot name: hyphens not allowed by DMS
-    slot_name              = "${replace(var.project_name, "-", "_")}_dms_slot"
-    fail_tasks_on_lob_truncation = false
+    capture_ddls                  = true
+    # pglogical — único plugin de replicação lógica disponível no RDS PostgreSQL 18
+    # (test_decoding não existe nesta versão; pgoutput não é suportado pelo DMS)
+    # Sem slot_name — DMS gerencia o slot automaticamente via pglogical
+    plugin_name                   = "pglogical"
+    fail_tasks_on_lob_truncation  = false
   }
 
   tags = merge(var.tags, {
@@ -196,43 +192,41 @@ resource "aws_dms_replication_task" "this" {
       InlineLobMaxSize    = 0
       LoadMaxFileSize     = 0
     }
+    ErrorBehavior = {
+      FailOnNoTablesCaptured = false
+    }
     FullLoadSettings = {
       TargetTablePrepMode             = "DO_NOTHING"
-      StopTaskCachedChangesNotApplied = true
-      StopTaskCachedChangesApplied    = true
+      # CDC requer StopTaskCachedChanges=false para que a task transicione
+      # automaticamente do full load para o CDC sem parar.
+      StopTaskCachedChangesNotApplied = false
+      StopTaskCachedChangesApplied    = false
       MaxFullLoadSubTasks             = 8
     }
     Logging = {
       EnableLogging = true
+      # Sem CloudWatchLogGroup — o DMS usa o grupo padrao
+      # dms-tasks-<replication-instance-id> automaticamente.
       LogComponents = [
-        {
-          Id = "TRANSFORMATION"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "SOURCE_UNLOAD"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "IO"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "TARGET_LOAD"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "PERFORMANCE"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "SOURCE_CAPTURE"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        },
-        {
-          Id = "DATA_STRUCTURE"
-          Severity = "LOGGER_SEVERITY_DEFAULT"
-        }
+        { Id = "TRANSFORMATION",  Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "SOURCE_UNLOAD",   Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "IO",              Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TARGET_LOAD",     Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "PERFORMANCE",    Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "SOURCE_CAPTURE", Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "SORTER",         Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "REST_SERVER",    Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "VALIDATOR_EXT",  Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TARGET_APPLY",   Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TASK_MANAGER",   Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "TABLES_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "METADATA_MANAGER", Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "FILE_FACTORY",   Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "COMMON",         Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "ADDONS",         Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "DATA_STRUCTURE", Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "COMMUNICATION",  Severity = "LOGGER_SEVERITY_DEFAULT" },
+        { Id = "FILE_TRANSFER",  Severity = "LOGGER_SEVERITY_DEFAULT" }
       ]
     }
   })
@@ -242,12 +236,6 @@ resource "aws_dms_replication_task" "this" {
   tags = merge(var.tags, {
     Name = "${var.project_name}-dms-task"
   })
-
-  lifecycle {
-    ignore_changes = [
-      replication_task_settings
-    ]
-  }
 }
 
 # ---------------------------------------------------------------------------
@@ -264,10 +252,15 @@ resource "aws_security_group_rule" "dms_to_rds" {
 }
 
 # ---------------------------------------------------------------------------
-# CloudWatch log group for DMS
+# CloudWatch log group for DMS replication instance
+# O DMS cria automaticamente um log group com o padrao
+#   dms-tasks-<replication-instance-id>
+# quando EnableLogging=true no replication_task_settings.
+# Nos mantemos o resource aqui apenas para garantir que o log group
+# tenha o retention configurado (senao o DMS cria com 'never expire').
 # ---------------------------------------------------------------------------
 resource "aws_cloudwatch_log_group" "dms" {
-  name              = "/aws/dms/${var.project_name}"
+  name              = "dms-tasks-${var.project_name}-dms-replication-instance"
   retention_in_days = var.log_retention_days
 
   tags = merge(var.tags, {

@@ -106,7 +106,7 @@ data "aws_iam_policy_document" "dms_s3_access" {
     actions = [
       "secretsmanager:GetSecretValue"
     ]
-    resources = [aws_secretsmanager_secret.rds_credentials.arn]
+    resources = [data.aws_secretsmanager_secret.rds_credentials.arn]
   }
 }
 

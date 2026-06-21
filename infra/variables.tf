@@ -245,7 +245,7 @@ variable "dms_config" {
   type = object({
     replication_instance_class = optional(string, "dms.t3.small")
     replication_storage_gb     = optional(number, 50)
-    engine_version             = optional(string, "3.5.4")
+    engine_version             = optional(string, "3.6.1")
     enabled                    = optional(bool, false)
     table_mappings             = optional(string)
     dms_task_settings          = optional(string)

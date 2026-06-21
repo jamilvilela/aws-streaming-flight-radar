@@ -1,22 +1,24 @@
 #!/bin/bash
-# rollback-setup.sh - Stop RDS + destroy remaining resources
+# rollback-setup.sh - Cria snapshot final e DESTRÓI tudo
 # Usage: ./rollback-setup.sh
+#
+# Fluxo:
+#   1. Cria snapshot manual do RDS
+#   2. terraform destroy (RDS incluso)
+#   3. Snapshot preservado no RDS para restore via setup-env.sh
 
 set -a
 
-export AWS_PAGER=""  # disable AWS CLI pager (avoids Enter-key prompts on JSON output)
+export AWS_PAGER=""  # disable AWS CLI pager
 
 # =============================================================================
-# STEP 1: Load environment variables from .env (optional)
+# STEP 1: Load environment variables from .env
 # =============================================================================
 if [ -f .env ]; then
     echo "📂 Carregando variáveis de .env..."
     source .env
-    
-    # Convert to Terraform variables
     export TF_VAR_opensky_client_id="$OPENSKY_CLIENT_ID"
     export TF_VAR_opensky_client_secret="$OPENSKY_CLIENT_SECRET"
-    
     echo "✅ Variáveis carregadas com sucesso!"
 fi
 
@@ -35,123 +37,114 @@ echo "📁 Mudado para diretório: $(pwd)"
 set +a
 
 # =============================================================================
-# STEP 3: Create final RDS snapshot before stopping
+# Config
 # =============================================================================
-RDS_IDENTIFIER="${PROJECT_NAME:-flight-radar-stream}-postgres"
-REPLICA_IDENTIFIER="${RDS_IDENTIFIER}-replica-1"
+PROJECT_NAME="${PROJECT_NAME:-flight-radar-stream}"
+RDS_IDENTIFIER="${PROJECT_NAME}-postgres"
+
 SNAPSHOT_ID="${RDS_IDENTIFIER}-snapshot-$(date +%Y%m%d-%H%M%S)"
 SNAPSHOT_FILE=".rds-snapshot-id"
-RDS_STATE_FILE=".rds-state-addresses"
+REGION="${AWS_REGION:-us-east-1}"
 
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+wait_for_snapshot() {
+    local SID="$1"
+    echo "⏳ Aguardando snapshot $SID ficar available..."
+    aws rds wait db-snapshot-available \
+        --db-instance-identifier "$RDS_IDENTIFIER" \
+        --db-snapshot-identifier "$SID"
+}
+
+# (ensure_export_kms_key e ensure_export_role foram removidos)
+
+# =============================================================================
+# STEP 3: Create final RDS snapshot
+# =============================================================================
 echo ""
-echo "💾 Criando snapshot do RDS ($RDS_IDENTIFIER) antes de parar..."
+echo "💾 STEP 3 — Criando snapshot final do RDS"
 echo "   Snapshot: $SNAPSHOT_ID"
 
 if aws rds describe-db-instances --db-instance-identifier "$RDS_IDENTIFIER" &>/dev/null; then
     aws rds create-db-snapshot \
         --db-instance-identifier "$RDS_IDENTIFIER" \
         --db-snapshot-identifier "$SNAPSHOT_ID"
-
-    echo "⏳ Aguardando snapshot ficar disponível..."
-    aws rds wait db-snapshot-available \
-        --db-instance-identifier "$RDS_IDENTIFIER" \
-        --db-snapshot-identifier "$SNAPSHOT_ID"
-
+    wait_for_snapshot "$SNAPSHOT_ID"
     echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE"
     echo "✅ Snapshot salvo: $SNAPSHOT_ID"
 else
-    echo "⚠️  Instância RDS $RDS_IDENTIFIER não encontrada. Pulando snapshot."
+    echo "⚠️  Instância $RDS_IDENTIFIER não encontrada."
+    echo "   Procure snapshots manuais existentes para exportar..."
+    # Tenta usar o snapshot mais recente
+    SNAPSHOT_ID=$(aws rds describe-db-snapshots \
+        --snapshot-type manual \
+        --query "reverse(sort_by(DBSnapshots, &SnapshotCreateTime))[0].DBSnapshotIdentifier" \
+        --output text 2>/dev/null)
+    if [ -n "$SNAPSHOT_ID" ] && [ "$SNAPSHOT_ID" != "None" ]; then
+        echo "   Usando snapshot existente: $SNAPSHOT_ID"
+        echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE"
+    else
+        echo "⚠️  Nenhum snapshot manual encontrado."
+        SNAPSHOT_ID=""
+    fi
 fi
 
 # =============================================================================
-# STEP 4: Stop RDS instances (main + replica) — NOT destroy
+# STEP 4: Terraform destroy (TUDO, incluindo RDS)
 # =============================================================================
 echo ""
-echo "⏹️  Parando instância RDS principal ($RDS_IDENTIFIER)..."
-if aws rds describe-db-instances --db-instance-identifier "$RDS_IDENTIFIER" &>/dev/null; then
-    aws rds stop-db-instance --db-instance-identifier "$RDS_IDENTIFIER" --no-force
-    echo "⏳ Aguardando RDS principal parar..."
-    aws rds wait db-instance-stopped --db-instance-identifier "$RDS_IDENTIFIER"
-    echo "✅ RDS principal parado."
-fi
-
-echo ""
-echo "⏹️  Parando réplica RDS ($REPLICA_IDENTIFIER)..."
-if aws rds describe-db-instances --db-instance-identifier "$REPLICA_IDENTIFIER" &>/dev/null; then
-    aws rds stop-db-instance --db-instance-identifier "$REPLICA_IDENTIFIER" --no-force
-    echo "⏳ Aguardando réplica parar..."
-    aws rds wait db-instance-stopped --db-instance-identifier "$REPLICA_IDENTIFIER"
-    echo "✅ Réplica RDS parada."
-fi
-
-# =============================================================================
-# STEP 5: Remove RDS instances from Terraform state so destroy não as toque
-# =============================================================================
-echo ""
-echo "🗑️  Removendo RDS do estado do Terraform para preservá-las..."
-
-terraform state list 2>/dev/null \
-  | grep 'module.rds_postgres.aws_db_instance' \
-  | tee "$RDS_STATE_FILE" \
-  | while read -r ADDR; do
-      echo "   Removendo: $ADDR"
-      terraform state rm "$ADDR"
-    done
-
-# =============================================================================
-# STEP 6: Terraform destroy (todos os recursos EXCETO RDS)
-# =============================================================================
-echo ""
-echo "⚠️  AVISO: Você está prestes a DESTRUIR os recursos AWS restantes!"
-echo "   O RDS PostgreSQL foi PARADO e preservado."
-echo "   Projeto: flight-radar-stream"
-echo "   Ambiente: production"
+echo "⚠️  STEP 4 — DESTRUINDO todos os recursos via Terraform"
+echo "   Projeto: $PROJECT_NAME | Ambiente: production"
+echo "   Snapshot '$SNAPSHOT_ID' preservado no RDS para restore."
 echo ""
 
-echo "🔥 Destruindo demais recursos..."
+echo "🔥 Destruindo recursos..."
 terraform destroy -var-file="tfvars/terraform.tfvars" -auto-approve
 
 DESTROY_EXIT=$?
 
-echo "🧹 Limpando Elastic IPs órfãos com tag Name=${PROJECT_NAME}-eip-nat..."
+# =============================================================================
+# STEP 5: Cleanup orphaned resources
+# =============================================================================
+echo ""
+echo "🧹 STEP 5 — Limpando recursos órfãos"
+
+echo "   Elastic IPs (tag Name=${PROJECT_NAME}-eip-nat)..."
 aws ec2 describe-addresses \
   --filters "Name=tag:Name,Values=${PROJECT_NAME}-eip-nat" \
+  --region "$REGION" \
   --query "Addresses[].AllocationId" \
   --output text | while read -r ALLOC_ID; do
     if [ -n "$ALLOC_ID" ]; then
-      echo " - Releasing EIP $ALLOC_ID"
-      aws ec2 release-address --allocation-id "$ALLOC_ID"
+      echo "   - Liberando EIP $ALLOC_ID"
+      aws ec2 release-address --allocation-id "$ALLOC_ID" --region "$REGION"
     fi
   done
 
 if [ $DESTROY_EXIT -ne 0 ]; then
-    echo "❌ terraform destroy falhou (código $DESTROY_EXIT)"
-    echo "   O RDS foi parado e está seguro, mas revise os erros acima."
+    echo "❌ terraform destroy falhou (código $DESTROY_EXIT)."
+    echo "   Reveja os erros acima e execute manualmente se necessário."
     exit 1
 fi
 
 # =============================================================================
-# STEP 7: Instruções para restart manual do RDS
+# STEP 6: Summary
 # =============================================================================
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
 echo "  ✅ Rollback concluído!"
 echo ""
-echo "  📌 O RDS PostgreSQL foi PRESERVADO (parado, não destruído)."
-echo "  📌 Snapshot salvo em: $(cat "$SNAPSHOT_FILE" 2>/dev/null || echo 'N/A')"
+echo "  📌 Todos os recursos foram DESTRUÍDOS via Terraform."
+echo "  📌 RDS PostgreSQL foi deletado."
 echo ""
-echo "  ▶️  Para REINICIAR o RDS quando precisar:"
-echo "     aws rds start-db-instance --db-instance-identifier $RDS_IDENTIFIER"
-echo "     aws rds start-db-instance --db-instance-identifier $REPLICA_IDENTIFIER"
+echo "  💾 Snapshot RDS preservado para restore:"
+echo "     $SNAPSHOT_ID"
 echo ""
-echo "  ▶️  Para reimportar o RDS ao estado do Terraform (se for aplicar novamente):"
-while read -r ADDR; do
-    echo "     terraform import -var-file=tfvars/terraform.tfvars \"$ADDR\" \"<resource-id>\""
-done < "$RDS_STATE_FILE"
+echo "  ▶️  Para RECRIAR o ambiente com o snapshot salvo:"
+echo "     ./setup-env.sh"
+echo ""
+echo "  O setup-env.sh detectará automaticamente o snapshot manual"
+echo "  mais recente e configurará TF_VAR_rds_snapshot_identifier."
 echo ""
 echo "═══════════════════════════════════════════════════════════════"
-
-# Salva os endereços de state para referência futura
-echo ""
-echo "   Os endereços de state do RDS foram salvos em: $RDS_STATE_FILE"
-echo ""

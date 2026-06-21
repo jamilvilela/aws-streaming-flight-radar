@@ -261,3 +261,44 @@ module "kinesis_analytics_flights" {
     module.kinesis_stream_flights,
   ]
 }
+
+# ---------------------------------------------------------------------------
+# CloudWatch Dashboard — monitoramento de todo o pipeline
+# ---------------------------------------------------------------------------
+module "cloudwatch_monitoring" {
+  source = "./modules/cloudwatch_monitoring"
+
+  project_name = var.project_name
+  aws_region   = var.aws_region
+  environment  = var.environment
+  tags         = var.tags
+
+  api_gateway_stage = var.create_api_gateway ? module.api_gateway.stage_name : ""
+
+  lambda_functions = [
+    {
+      name = module.lambda_authorizer.function_name
+      arn  = module.lambda_authorizer.function_arn
+    },
+    {
+      name = module.lambda_flights.function_name
+      arn  = module.lambda_flights.function_arn
+    },
+  ]
+
+  kinesis_stream_name    = module.kinesis_stream_flights.kinesis_stream_name
+  kinesis_stream_name_rt = module.kinesis_stream_flights.kinesis_stream_flights_rt_name
+
+  kda_application_name = module.kinesis_analytics_flights.kda_application_name
+
+  dms_task_id = var.dms_config.enabled ? module.dms[0].task_id : ""
+
+  sqs_queue_name = module.flights_dlq.queue_name
+
+  s3_landing_bucket_name = local.buckets.landing
+
+  depends_on = [
+    module.kinesis_analytics_flights,
+    module.dms,
+  ]
+}

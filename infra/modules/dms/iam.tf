@@ -22,6 +22,23 @@ resource "aws_iam_role_policy" "dms_vpc_ec2" {
 }
 
 # ---------------------------------------------------------------------------
+# dms-access-for-tasks (required by DMS assessment/monitoring)
+# This is an AWS-managed service role that DMS assumes to access
+# CloudWatch Logs for task assessments. The role name must be exactly
+# "dms-access-for-tasks" as DMS looks it up by name.
+# ---------------------------------------------------------------------------
+resource "aws_iam_role" "dms_access_for_tasks" {
+  name               = "dms-access-for-tasks"
+  assume_role_policy = data.aws_iam_policy_document.dms_assume_role.json
+  description        = "Default DMS access for tasks role (required for assessments)"
+}
+
+resource "aws_iam_role_policy_attachment" "dms_access_for_tasks" {
+  role       = aws_iam_role.dms_access_for_tasks.name
+  policy_arn = "arn:${data.aws_partition.current.partition}:iam::aws:policy/service-role/AmazonDMSCloudWatchLogsRole"
+}
+
+# ---------------------------------------------------------------------------
 # DMS CloudWatch Logs role
 # ---------------------------------------------------------------------------
 resource "aws_iam_role" "dms_cloudwatch_logs" {

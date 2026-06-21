@@ -23,14 +23,14 @@ output "target_endpoint_arn" {
   value       = aws_dms_s3_endpoint.target.endpoint_arn
 }
 
+output "task_id" {
+  description = "Identifier of the DMS replication task"
+  value       = aws_dms_replication_task.this.replication_task_id
+}
+
 output "task_arn" {
   description = "ARN of the DMS replication task"
   value       = aws_dms_replication_task.this.replication_task_arn
-}
-
-output "task_id" {
-  description = "ID of the DMS replication task"
-  value       = aws_dms_replication_task.this.replication_task_id
 }
 
 output "dms_security_group_id" {
@@ -50,12 +50,12 @@ output "kms_key_alias" {
 
 output "secrets_manager_secret_arn" {
   description = "ARN of the Secrets Manager secret for RDS credentials"
-  value       = aws_secretsmanager_secret.rds_credentials.arn
+  value       = data.aws_secretsmanager_secret.rds_credentials.arn
 }
 
 output "secrets_manager_secret_name" {
   description = "Name of the Secrets Manager secret for RDS credentials"
-  value       = aws_secretsmanager_secret.rds_credentials.name
+  value       = data.aws_secretsmanager_secret.rds_credentials.name
 }
 
 output "iam_role_dms_s3_arn" {

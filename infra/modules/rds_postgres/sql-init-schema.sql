@@ -116,7 +116,8 @@ INSERT INTO airlines (icao_code, iata_code, name, country, callsign) VALUES
     ('DAL', 'DL', 'Delta Air Lines', 'United States', 'DELTA'),
     ('UAL', 'UA', 'United Airlines', 'United States', 'UNITED'),
     ('BAW', 'BA', 'British Airways', 'United Kingdom', 'SPEEDBIRD'),
-    ('DLH', 'LH', 'Lufthansa', 'Germany', 'LUFTHANSA')
+    ('DLH', 'LH', 'Lufthansa', 'Germany', 'LUFTHANSA'),
+    ('XXX', 'AA', 'American Airlines', 'United States', 'AMERICAN')
 ON CONFLICT (icao_code) DO NOTHING;
 
 INSERT INTO flights (flight_number, airline_icao, aircraft_icao24, origin_airport, destination_airport, scheduled_departure, scheduled_arrival, status) VALUES
@@ -155,3 +156,31 @@ INSERT INTO aircraft_positions (aircraft_icao24, flight_id, latitude, longitude,
     ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours'),
     ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours 30 minutes')
 ON CONFLICT DO NOTHING;
+
+-- =============================================================================
+-- DMS (Database Migration Service) — Logical Replication Prerequisites
+-- O DMS usa o plugin pglogical para captura CDC. Estes comandos preparam
+-- o banco para que o DMS possa se conectar e criar seu próprio slot de
+-- replicação automaticamente.
+-- =============================================================================
+
+-- 1. Cria a extensão pglogical (necessário shared_preload_libraries='pglogical'
+--    no parameter group do RDS — já configurado via Terraform).
+--    Se falhar com "pglogical is not in shared_preload_libraries", verifique
+--    o parameter group e aplique com reboot.
+CREATE EXTENSION IF NOT EXISTS pglogical;
+
+-- 2. Garante que o dbadmin tenha o privilégio rds_replication.
+--    Necessário para que o DMS crie/gerencie slots de replicação lógica.
+GRANT rds_replication TO dbadmin;
+
+-- 3. Cria o pglogical node (necessário para o DMS 3.5.x iniciar o CDC).
+--    O DMS 3.6.1+ pode criar o node automaticamente, mas a criação manual
+--    é uma salvaguarda. Substitua <rds-endpoint> pelo endpoint do RDS.
+--    Este comando DEVE ser executado APÓS o RDS estar acessível e a extensão
+--    pglogical instalada.
+--
+--    SELECT pglogical.create_node(
+--        node_name := 'dms_replication_node',
+--        dsn       := 'host=<rds-endpoint> port=5432 dbname=flightradar user=dbadmin sslmode=require'
+--    );
