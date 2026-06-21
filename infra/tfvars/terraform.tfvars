@@ -102,9 +102,9 @@ rds_config = {
 # DMS Configuration (disabled by default)
 dms_config = {
   enabled                      = true
-  replication_instance_class   = "dms.t3.micro"
+  replication_instance_class   = "dms.t3.small"
   replication_storage_gb       = 50
-  engine_version               = "3.5.3"
+  engine_version               = "3.5.4"
 }
 
 alarm_thresholds = {

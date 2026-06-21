@@ -13,23 +13,23 @@ output "streams_name" {
 # Output para backward compatibility - flights (input)
 output "kinesis_stream_flight_arn" {
   description = "ARN do stream Kinesis para dados brutos (flights)"
-  value       = try(aws_kinesis_stream.this["flights"].arn, null)
+  value       = try(aws_kinesis_stream.this["flights"].arn, "")
 }
 
 output "kinesis_stream_name" {
   description = "Nome do stream Kinesis para dados brutos (flights)"
-  value       = try(aws_kinesis_stream.this["flights"].name, null)
+  value       = try(aws_kinesis_stream.this["flights"].name, "")
 }
 
 # Output para backward compatibility - flights_rt (output)
 output "kinesis_stream_flights_rt_arn" {
   description = "ARN do Kinesis Stream para dados em tempo real (flights_rt)"
-  value       = try(aws_kinesis_stream.this["flights_rt"].arn, null)
+  value       = try(aws_kinesis_stream.this["flights_rt"].arn, "")
 }
 
 output "kinesis_stream_flights_rt_name" {
   description = "Nome do Kinesis Stream para dados em tempo real (flights_rt)"
-  value       = try(aws_kinesis_stream.this["flights_rt"].name, null)
+  value       = try(aws_kinesis_stream.this["flights_rt"].name, "")
 }
 
 # Informações completas dos streams

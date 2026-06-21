@@ -11,7 +11,9 @@ data "aws_iam_policy_document" "dms_assume_role" {
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
-      identifiers = ["dms.amazonaws.com"]
+      # DMS now requires the regional service principal (dms.<region>.amazonaws.com)
+      # for the trust relationship. Keep both for backward compatibility.
+      identifiers = ["dms.${var.region}.amazonaws.com", "dms.amazonaws.com"]
     }
   }
 }
@@ -21,8 +23,27 @@ data "aws_iam_policy_document" "dms_vpc_assume_role" {
     actions = ["sts:AssumeRole"]
     principals {
       type        = "Service"
-      identifiers = ["dms.amazonaws.com"]
+      identifiers = ["dms.${var.region}.amazonaws.com", "dms.amazonaws.com"]
     }
+  }
+}
+
+# Additional EC2 permissions for DMS VPC role — DMS may require these
+# when creating/destroying elastic network interfaces in the VPC.
+data "aws_iam_policy_document" "dms_vpc_ec2" {
+  statement {
+    effect = "Allow"
+    actions = [
+      "ec2:CreateNetworkInterface",
+      "ec2:DeleteNetworkInterface",
+      "ec2:DescribeNetworkInterfaces",
+      "ec2:ModifyNetworkInterfaceAttribute",
+      "ec2:DescribeSubnets",
+      "ec2:DescribeVpcs",
+      "ec2:DescribeSecurityGroups",
+      "ec2:CreateNetworkInterfacePermission"
+    ]
+    resources = ["*"]
   }
 }
 
@@ -85,6 +106,11 @@ data "aws_iam_policy_document" "dms_s3_access" {
     actions = [
       "secretsmanager:GetSecretValue"
     ]
-    resources = [aws_secretsmanager_secret.rds_credentials.arn]
+    resources = [data.aws_secretsmanager_secret.rds_credentials.arn]
   }
+}
+
+# Route tables in the VPC (used by Gateway Endpoints for S3)
+data "aws_route_tables" "dms" {
+  vpc_id = var.vpc_id
 }

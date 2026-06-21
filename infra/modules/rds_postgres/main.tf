@@ -13,6 +13,29 @@ resource "aws_db_parameter_group" "this" {
   family      = "postgres18"
   description = "Parameter group for ${var.project_name} RDS PostgreSQL"
 
+  parameter {
+    name         = "rds.logical_replication"
+    value        = "1"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "shared_preload_libraries"
+    # PostgreSQL 18 RDS allowed values:
+    # auto_explain,orafce,pgaudit,pglogical,pg_bigm,pg_cron,pg_hint_plan,
+    # pg_overexplain,pg_prewarm,pg_similarity,pg_stat_monitor,pg_stat_statements,
+    # pg_tle,pg_transport,plprofiler
+    # NOTA: rdsutils e rds_casts não são mais suportados no PostgreSQL 18.
+    value        = "pg_tle,pg_stat_statements,pglogical"
+    apply_method = "pending-reboot"
+  }
+
+  parameter {
+    name         = "logical_decoding_work_mem"
+    value        = "65536"
+    apply_method = "pending-reboot"
+  }
+
   tags = merge(var.tags, {
     Name = "${var.project_name}-rds-pg"
   })
