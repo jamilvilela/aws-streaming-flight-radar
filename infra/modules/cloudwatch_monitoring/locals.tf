@@ -596,40 +596,24 @@ locals {
       properties = { markdown = "## 🔄 DMS Serverless — Aurora → S3 (Lake)" }
     } if var.dms_serverless_config_id != ""],
 
-    # CDC Changes
+    # CDC Changes + Bytes
     [for i in [0] : {
       type   = "metric"
       x      = 0
       y      = 38
-      width  = 6
+      width  = 12
       height = 5
       properties = {
-        title       = "🔄 CDC Changes"
+        title       = "🔄 CDC Incoming"
         period      = local.period
         stat        = "Sum"
         region      = var.aws_region
-        metrics     = [["AWS/DMS", "CDCIncomingChanges", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Changes", color = local.colors.info }]]
+        metrics     = [
+          ["AWS/DMS", "CDCIncomingChanges", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Changes", color = local.colors.info }],
+          ["AWS/DMS", "CDCIncomingBytes", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Bytes", color = local.colors.cyan }],
+        ]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
-        annotations = { horizontal = [] }
-      }
-    } if var.dms_serverless_config_id != ""],
-
-    # Throughput
-    [for i in [0] : {
-      type   = "metric"
-      x      = 6
-      y      = 38
-      width  = 6
-      height = 5
-      properties = {
-        title       = "📊 Throughput (MB/s)"
-        period      = local.period
-        stat        = "Average"
-        region      = var.aws_region
-        metrics     = [["AWS/DMS", "CdcThroughputBandwidth", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "MB/s", color = local.colors.cyan }]]
-        view        = "timeSeries"
-        yAxis       = { left = { min = 0, label = "MB/s" } }
         annotations = { horizontal = [] }
       }
     } if var.dms_serverless_config_id != ""],
@@ -656,7 +640,7 @@ locals {
       }
     } if var.dms_serverless_config_id != ""],
 
-    # Errors
+    # CDC Errors
     [for i in [0] : {
       type   = "metric"
       x      = 18
@@ -664,14 +648,71 @@ locals {
       width  = 6
       height = 5
       properties = {
-        title       = "❌ Errors"
+        title       = "❌ CDC Errors"
         period      = local.period
         stat        = "Sum"
         region      = var.aws_region
         metrics     = [
           ["AWS/DMS", "CDCChangesFailed", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "CDC Err", color = local.colors.error }],
-          ["AWS/DMS", "FullLoadErrors", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "FL Err", color = local.colors.warning }],
         ]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.dms_serverless_config_id != ""],
+
+    # ── Full Load metrics ───────────────────────────────────────────────
+    # Full Load Throughput
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = 43
+      width  = 8
+      height = 5
+      properties = {
+        title       = "📊 FL Throughput (MB/s)"
+        period      = local.period
+        stat        = "Average"
+        region      = var.aws_region
+        metrics     = [["AWS/DMS", "FullLoadThroughputBandwidth", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "MB/s", color = local.colors.cyan }]]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0, label = "MB/s" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.dms_serverless_config_id != ""],
+
+    # Full Load Rows/s
+    [for i in [0] : {
+      type   = "metric"
+      x      = 8
+      y      = 43
+      width  = 8
+      height = 5
+      properties = {
+        title       = "📊 FL Rows/s"
+        period      = local.period
+        stat        = "Average"
+        region      = var.aws_region
+        metrics     = [["AWS/DMS", "FullLoadThroughputRows", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Rows/s", color = local.colors.success }]]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.dms_serverless_config_id != ""],
+
+    # Full Load Errors
+    [for i in [0] : {
+      type   = "metric"
+      x      = 16
+      y      = 43
+      width  = 8
+      height = 5
+      properties = {
+        title       = "⚠️ FL Errors"
+        period      = local.period
+        stat        = "Sum"
+        region      = var.aws_region
+        metrics     = [["AWS/DMS", "FullLoadErrors", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "FL Err", color = local.colors.warning }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
         annotations = { horizontal = [] }
@@ -684,7 +725,7 @@ locals {
     [for i in [0] : {
       type       = "text"
       x          = 0
-      y          = 43
+      y          = 48
       width      = 24
       height     = 1
       properties = { markdown = "## 📬 SQS DLQ (Dead Letter Queue)" }
@@ -694,7 +735,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 0
-      y      = 44
+      y      = 49
       width  = 8
       height = 5
       properties = {
@@ -713,7 +754,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 8
-      y      = 44
+      y      = 49
       width  = 8
       height = 5
       properties = {
@@ -732,7 +773,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 16
-      y      = 44
+      y      = 49
       width  = 8
       height = 5
       properties = {
@@ -753,7 +794,7 @@ locals {
     [for i in [0] : {
       type       = "text"
       x          = 0
-      y          = 49
+      y          = 54
       width      = 24
       height     = 1
       properties = { markdown = "## 💾 S3 Landing — Lake" }
@@ -763,7 +804,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 0
-      y      = 50
+      y      = 55
       width  = 12
       height = 5
       properties = {
@@ -782,7 +823,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 12
-      y      = 50
+      y      = 55
       width  = 12
       height = 5
       properties = {
@@ -796,6 +837,16 @@ locals {
         annotations = { horizontal = [] }
       }
     } if var.s3_landing_bucket_name != ""],
+
+    # Note — métricas diárias
+    [for i in [0] : {
+      type       = "text"
+      x          = 0
+      y          = 60
+      width      = 24
+      height     = 1
+      properties = { markdown = "⚠️ **Nota:** `BucketSizeBytes` e `NumberOfObjects` são métricas **diárias** (publicadas 1×/dia). Pode levar até 24h para o primeiro ponto aparecer após os dados começarem a chegar no bucket." }
+    } if var.s3_landing_bucket_name != ""]
 
   ])
 }
