@@ -40,63 +40,16 @@ set +a
 # Config
 # =============================================================================
 PROJECT_NAME="${PROJECT_NAME:-flight-radar-stream}"
-RDS_IDENTIFIER="${PROJECT_NAME}-postgres"
-
-SNAPSHOT_ID="${RDS_IDENTIFIER}-snapshot-$(date +%Y%m%d-%H%M%S)"
-SNAPSHOT_FILE=".rds-snapshot-id"
 REGION="${AWS_REGION:-us-east-1}"
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-wait_for_snapshot() {
-    local SID="$1"
-    echo "⏳ Aguardando snapshot $SID ficar available..."
-    aws rds wait db-snapshot-available \
-        --db-instance-identifier "$RDS_IDENTIFIER" \
-        --db-snapshot-identifier "$SID"
-}
-
-# (ensure_export_kms_key e ensure_export_role foram removidos)
-
 # =============================================================================
-# STEP 3: Create final RDS snapshot
+# STEP 3: Terraform destroy (TUDO, incluindo Aurora)
+# skip_final_snapshot=false → Terraform cria snapshot final automático no destroy
 # =============================================================================
 echo ""
-echo "💾 STEP 3 — Criando snapshot final do RDS"
-echo "   Snapshot: $SNAPSHOT_ID"
-
-if aws rds describe-db-instances --db-instance-identifier "$RDS_IDENTIFIER" &>/dev/null; then
-    aws rds create-db-snapshot \
-        --db-instance-identifier "$RDS_IDENTIFIER" \
-        --db-snapshot-identifier "$SNAPSHOT_ID"
-    wait_for_snapshot "$SNAPSHOT_ID"
-    echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE"
-    echo "✅ Snapshot salvo: $SNAPSHOT_ID"
-else
-    echo "⚠️  Instância $RDS_IDENTIFIER não encontrada."
-    echo "   Procure snapshots manuais existentes para exportar..."
-    # Tenta usar o snapshot mais recente
-    SNAPSHOT_ID=$(aws rds describe-db-snapshots \
-        --snapshot-type manual \
-        --query "reverse(sort_by(DBSnapshots, &SnapshotCreateTime))[0].DBSnapshotIdentifier" \
-        --output text 2>/dev/null)
-    if [ -n "$SNAPSHOT_ID" ] && [ "$SNAPSHOT_ID" != "None" ]; then
-        echo "   Usando snapshot existente: $SNAPSHOT_ID"
-        echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE"
-    else
-        echo "⚠️  Nenhum snapshot manual encontrado."
-        SNAPSHOT_ID=""
-    fi
-fi
-
-# =============================================================================
-# STEP 4: Terraform destroy (TUDO, incluindo RDS)
-# =============================================================================
-echo ""
-echo "⚠️  STEP 4 — DESTRUINDO todos os recursos via Terraform"
+echo "⚠️  STEP 3 — DESTRUINDO todos os recursos via Terraform"
 echo "   Projeto: $PROJECT_NAME | Ambiente: production"
-echo "   Snapshot '$SNAPSHOT_ID' preservado no RDS para restore."
+echo "   (skip_final_snapshot=false → snapshot final automático será gerado)"
 echo ""
 
 echo "🔥 Destruindo recursos..."
@@ -105,10 +58,10 @@ terraform destroy -var-file="tfvars/terraform.tfvars" -auto-approve
 DESTROY_EXIT=$?
 
 # =============================================================================
-# STEP 5: Cleanup orphaned resources
+# STEP 4: Cleanup orphaned resources
 # =============================================================================
 echo ""
-echo "🧹 STEP 5 — Limpando recursos órfãos"
+echo "🧹 STEP 4 — Limpando recursos órfãos"
 
 echo "   Elastic IPs (tag Name=${PROJECT_NAME}-eip-nat)..."
 aws ec2 describe-addresses \
@@ -136,15 +89,12 @@ echo "════════════════════════�
 echo "  ✅ Rollback concluído!"
 echo ""
 echo "  📌 Todos os recursos foram DESTRUÍDOS via Terraform."
-echo "  📌 RDS PostgreSQL foi deletado."
+echo "  📌 Aurora Serverless v2 foi deletado."
 echo ""
-echo "  💾 Snapshot RDS preservado para restore:"
+echo "  💾 Cluster snapshot Aurora preservado para restore:"
 echo "     $SNAPSHOT_ID"
 echo ""
-echo "  ▶️  Para RECRIAR o ambiente com o snapshot salvo:"
+echo "  ▶️  Para RECRIAR o ambiente primeiro rode o setup:"
 echo "     ./setup-env.sh"
 echo ""
-echo "  O setup-env.sh detectará automaticamente o snapshot manual"
-echo "  mais recente e configurará TF_VAR_rds_snapshot_identifier."
-echo ""
-echo "═══════════════════════════════════════════════════════════════"
+echo "  ▶️  Depois, restaure o snapshot Aurora com:"

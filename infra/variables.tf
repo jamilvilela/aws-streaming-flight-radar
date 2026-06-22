@@ -224,7 +224,7 @@ variable "lambda_flights_reserved_concurrency" {
 # ============================================================================
 
 variable "rds_snapshot_identifier" {
-  description = "Override snapshot_identifier for RDS restore. Set via TF_VAR_rds_snapshot_identifier by restore-from-snapshot.sh."
+  description = "Override snapshot_identifier for RDS restore. Set via TF_VAR_rds_snapshot_identifier by restore-snapshot.sh."
   type        = string
   default     = null
 }
@@ -241,21 +241,19 @@ variable "rds_admin_password" {
 # ============================================================================
 
 variable "dms_config" {
-  description = "Configuration for AWS DMS replication (RDS PostgreSQL -> S3 Parquet)"
+  description = "Configuration for AWS DMS Serverless (Aurora PostgreSQL -> S3 Parquet)"
   type = object({
-    replication_instance_class = optional(string, "dms.t3.small")
-    replication_storage_gb     = optional(number, 50)
-    engine_version             = optional(string, "3.6.1")
-    enabled                    = optional(bool, false)
-    table_mappings             = optional(string)
-    dms_task_settings          = optional(string)
-    full_load_instance_class   = optional(string)
+    enabled              = optional(bool, false)
+    min_capacity_units   = optional(number, 1)
+    max_capacity_units   = optional(number, 4)
+    table_mappings       = optional(string)
+    replication_settings = optional(string)
   })
   default = {}
 }
 
-variable "rds_config" {
-  description = "Configuration for the RDS PostgreSQL instance"
+variable "aurora_config" {
+  description = "Configuration for the Aurora Serverless v2 PostgreSQL cluster"
   type = object({
     vpc_id                  = string
     subnet_ids              = list(string)
@@ -263,19 +261,15 @@ variable "rds_config" {
     db_name                 = optional(string, "flightradar")
     admin_username          = optional(string, "dbadmin")
     admin_password          = string
-    instance_class          = optional(string, "db.t3.medium")
-    allocated_storage_gb    = optional(number, 20)
-    max_allocated_storage_gb = optional(number, 100)
+    serverless_min_capacity = optional(number, 0.5)
+    serverless_max_capacity = optional(number, 8)
     backup_retention_days   = optional(number, 7)
     publicly_accessible     = optional(bool, false)
     snapshot_identifier     = optional(string, null)
-    read_replicas = optional(list(object({
-      instance_class       = optional(string)
-      allocated_storage_gb = optional(number)
-      publicly_accessible  = optional(bool, false)
-    })), [])
-    skip_final_snapshot     = optional(bool, true)
+    skip_final_snapshot     = optional(bool, false)
     deletion_protection     = optional(bool, false)
     log_retention_days      = optional(number, 7)
+    reader_count                = optional(number, 0)
+    auto_minor_version_upgrade = optional(bool, true)
   })
 }

@@ -202,85 +202,20 @@ ok "validate concluído"
 section "STEP 7 — terraform plan"
 terraform plan -var-file="$TFVARS_FILE" -out=tfplan
 [ $? -ne 0 ] && { fail "terraform plan falhou"; exit 2; }
-ok "plan concluído (salvo em tfplan)"
-
-# ---------------------------------------------------------------------------
-# STEP 7.5 — Check for RDS snapshot to restore (from local ID, S3, or auto-discovery)
-# ---------------------------------------------------------------------------
-RESTORE_SNAPSHOT=""
-AWS_ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text 2>/dev/null)
-S3_BUCKET="lakehouse-workspace-${AWS_ACCOUNT_ID}"
-S3_PREFIX="rds-snapshots"
-SNAPSHOT_FILE=".rds-snapshot-id"
-
-resolve_snapshot() {
-  local SID=""
-
-  # 1) Try local .rds-snapshot-id file (written by rollback-setup.sh)
-  if [ -f "$SNAPSHOT_FILE" ]; then
-    SID=$(cat "$SNAPSHOT_FILE")
-    if [ -n "$SID" ] && aws rds describe-db-snapshots --db-snapshot-identifier "$SID" &>/dev/null; then
-      local STATUS
-      STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SID" --query 'DBSnapshots[0].Status' --output text)
-      if [ "$STATUS" = "available" ]; then
-        echo "$SID"
-        return 0
-      fi
-      warn "Snapshot '$SID' do arquivo local tem status '$STATUS' (esperado: available)."
-    else
-      warn "Snapshot '$SID' do arquivo local não encontrado na conta."
-    fi
-  fi
-
-  # 2) Fallback: auto-discover the latest manual snapshot for this project
-  echo -e "  ${BLUE}🔍 Procurando snapshot manual mais recente...${NC}"
-  SID=$(aws rds describe-db-snapshots \
-    --snapshot-type manual \
-    --query "reverse(sort_by(DBSnapshots, &SnapshotCreateTime))[0].DBSnapshotIdentifier" \
-    --output text 2>/dev/null)
-  if [ -n "$SID" ] && [ "$SID" != "None" ] && [ "$SID" != "$SNAPSHOT_ID_OLD" ]; then
-    local STATUS
-    STATUS=$(aws rds describe-db-snapshots --db-snapshot-identifier "$SID" --query 'DBSnapshots[0].Status' --output text 2>/dev/null)
-    if [ "$STATUS" = "available" ]; then
-      echo "$SID"
-      return 0
-    fi
-  fi
-
-  # 3) Notify about S3 export as last resort reference
-  echo -e "  ${YELLOW}ℹ️  Nenhum snapshot RDS manual encontrado.${NC}"
-  echo "   Verifique se há export em s3://$S3_BUCKET/$S3_PREFIX/"
-  echo "   O RDS será criado vazio (sem restore)."
-  echo ""
-  return 1
-}
-
-FOUND_SNAPSHOT=$(resolve_snapshot)
-if [ -n "$FOUND_SNAPSHOT" ]; then
-  SNAPSHOT_ID="$FOUND_SNAPSHOT"
-  # Save so subsequent runs find it faster
-  echo "$SNAPSHOT_ID" > "$SNAPSHOT_FILE" 2>/dev/null
-  export TF_VAR_rds_snapshot_identifier="$SNAPSHOT_ID"
-  RESTORE_SNAPSHOT="$SNAPSHOT_ID"
-  ok "RDS será restaurado do snapshot '$SNAPSHOT_ID'"
-
-  # Check if there's also an S3 export available
-  if aws s3 ls "s3://$S3_BUCKET/$S3_PREFIX/" &>/dev/null; then
-    ok "Snapshot exportado também em s3://$S3_BUCKET/$S3_PREFIX/ (pode ser usado para Athena/analytics)"
-  fi
-fi
+ok "plan concluido (salvo em tfplan)"
 
 if [ "$SKIP_APPLY" -eq 1 ]; then
-  warn "--skip-apply informado; apply não será executado."
+  warn "--skip-apply informado; apply nao sera executado."
 else
   # -------------------------------------------------------------------------
-  # STEP 7.6 — Ensure DMS secret exists (data source, not managed by TF)
+  # STEP 7.5 — Ensure DMS secret exists (data source, not managed by TF)
   # -------------------------------------------------------------------------
   PROJECT_NAME="${PROJECT_NAME:-${TF_VAR_project_name:-$(grep -E '^project_name' "$TFVARS_FILE" | head -1 | cut -d= -f2 | tr -d ' \"')}}"
-  DMS_SECRET_NAME="${PROJECT_NAME}-dms-rds-credentials"
+  PROJECT_NAME="${PROJECT_NAME//$'\r'}"
+  DMS_SECRET_NAME="${PROJECT_NAME}-dms-aurora-credentials"
 
   if ! aws secretsmanager describe-secret --secret-id "$DMS_SECRET_NAME" --region "$AWS_REGION" &>/dev/null; then
-    echo -e "  ${BLUE}🔐 Criando secret $DMS_SECRET_NAME...${NC}"
+    echo -e "  ${BLUE}Criando secret $DMS_SECRET_NAME...${NC}"
     aws secretsmanager create-secret \
       --name "$DMS_SECRET_NAME" \
       --description "RDS PostgreSQL credentials for DMS source endpoint (created by setup-env.sh)" \
@@ -288,69 +223,42 @@ else
       --region "$AWS_REGION" > /dev/null
     ok "Secret $DMS_SECRET_NAME criado"
   else
-    # Se existir mas estiver agendado para deleção, restaura
+    # Se existir mas estiver agendado para delecao, restaura
     DELETION_DATE=$(aws secretsmanager describe-secret \
       --secret-id "$DMS_SECRET_NAME" \
       --query 'DeletedDate' --output text --region "$AWS_REGION" 2>/dev/null)
     if [ -n "$DELETION_DATE" ] && [ "$DELETION_DATE" != "None" ]; then
-      echo -e "  ${BLUE}♻️  Restaurando secret $DMS_SECRET_NAME (agendado para deleção)...${NC}"
+      echo -e "  ${BLUE}Restaurando secret $DMS_SECRET_NAME (agendado para delecao)...${NC}"
       aws secretsmanager restore-secret \
         --secret-id "$DMS_SECRET_NAME" \
         --region "$AWS_REGION" > /dev/null
       ok "Secret restaurado"
     else
-      ok "Secret $DMS_SECRET_NAME já existe"
+      ok "Secret $DMS_SECRET_NAME ja existe"
     fi
   fi
 
   section "STEP 8 — terraform apply"
   terraform apply -var-file="$TFVARS_FILE" -auto-approve tfplan
   [ $? -ne 0 ] && { fail "terraform apply falhou"; exit 2; }
-  ok "apply concluído"
+  ok "apply concluido"
 
-  # Clean up snapshot file after successful apply
-  if [ -n "$RESTORE_SNAPSHOT" ] && [ -f "$SNAPSHOT_FILE" ]; then
-    rm "$SNAPSHOT_FILE"
-    ok "Arquivo $SNAPSHOT_FILE removido (snapshot '$RESTORE_SNAPSHOT' utilizado)"
-  fi
-
-  # Populate DMS Secrets Manager secret with RDS credentials
+  # Populate DMS Secrets Manager secret with Aurora credentials
   if [ -n "${RDS_ADMIN_PASSWORD:-}" ]; then
-    RDS_USER="$(terraform output -raw rds_admin_username 2>/dev/null || echo "dbadmin")"
-    RDS_ENDPOINT="$(terraform output -raw rds_endpoint 2>/dev/null || echo "")"
-    RDS_PORT="$(terraform output -raw rds_port 2>/dev/null || echo "5432")"
-    RDS_DBNAME="$(terraform output -raw rds_db_name 2>/dev/null || echo "flightradar")"
-    DMS_SECRET_VALUE="{\"username\":\"${RDS_USER}\",\"password\":\"${RDS_ADMIN_PASSWORD}\",\"host\":\"${RDS_ENDPOINT}\",\"port\":${RDS_PORT},\"dbname\":\"${RDS_DBNAME}\"}"
+    AURORA_USER="$(terraform output -raw aurora_admin_username 2>/dev/null || echo "dbadmin")"
+    AURORA_ENDPOINT="$(terraform output -raw aurora_endpoint 2>/dev/null || echo "")"
+    AURORA_PORT="$(terraform output -raw aurora_port 2>/dev/null || echo "5432")"
+    AURORA_DBNAME="$(terraform output -raw aurora_db_name 2>/dev/null || echo "flightradar")"
+    DMS_SECRET_VALUE="{\"username\":\"${AURORA_USER}\",\"password\":\"${RDS_ADMIN_PASSWORD}\",\"host\":\"${AURORA_ENDPOINT}\",\"port\":${AURORA_PORT},\"dbname\":\"${AURORA_DBNAME}\"}"
     aws secretsmanager put-secret-value \
       --secret-id "$DMS_SECRET_NAME" \
       --secret-string "$DMS_SECRET_VALUE" \
       --region "$AWS_REGION" &>/dev/null
-    ok "DMS secret '$DMS_SECRET_NAME' populated with RDS credentials (host/port/dbname included)"
-  elif [ -n "${RDS_ADMIN_PASSWORD:-}" ]; then
-    warn "DMS secret '$DMS_SECRET_NAME' not found (DMS disabled?). Skipping secret population."
+    ok "DMS secret '$DMS_SECRET_NAME' populated with Aurora credentials (host/port/dbname included)"
+  else
+    warn "RDS_ADMIN_PASSWORD nao definido no .env. Nao foi possivel popular o secret do DMS."
   fi
 
-  # -------------------------------------------------------------------------
-  # STEP 8.5 — Reboot RDS if restored from snapshot (apply parameter group)
-  # -------------------------------------------------------------------------
-  if [ -n "$RESTORE_SNAPSHOT" ]; then
-    RDS_IDENTIFIER="${PROJECT_NAME}-postgres"
-    echo -e "  ${BLUE}🔄 Snapshot restaurado — reiniciando RDS para aplicar parameter group...${NC}"
-    echo "   (rds.logical_replication=1 e logical_decoding_work_mem=65536 precisam de reboot)"
-
-    # Small wait for RDS to be fully available after apply
-    sleep 15
-
-    aws rds reboot-db-instance \
-      --db-instance-identifier "$RDS_IDENTIFIER" \
-      --region "$AWS_REGION" > /dev/null
-
-    echo -e "  ${BLUE}⏳ Aguardando reboot do RDS...${NC}"
-    aws rds wait db-instance-available \
-      --db-instance-identifier "$RDS_IDENTIFIER" \
-      --region "$AWS_REGION"
-    ok "RDS reiniciado. Parâmetros de logical replication ativos."
-  fi
 fi
 
 # ---------------------------------------------------------------------------
@@ -415,24 +323,23 @@ print_output flights_dlq_arn
 print_output flights_dlq_url
 
 echo ""
-echo -e "  ${BLUE}-- RDS PostgreSQL --${NC}"
-print_output rds_endpoint
-print_output rds_port
-print_output rds_db_name
-print_output rds_admin_username true
-print_output rds_security_group_id
-print_output rds_psql_connection true
+echo -e "  ${BLUE}-- Aurora Serverless v2 --${NC}"
+print_output aurora_endpoint
+print_output aurora_reader_endpoint
+print_output aurora_port
+print_output aurora_db_name
+print_output aurora_admin_username true
+print_output aurora_security_group_id
+print_output aurora_connection true
 
 echo ""
-echo -e "  ${BLUE}-- DMS (Database Migration Service) --${NC}"
-print_output dms_replication_instance_id
-print_output dms_replication_instance_arn
+echo -e "  ${BLUE}-- DMS Serverless --${NC}"
+print_output dms_replication_config_id
+print_output dms_replication_config_arn
 print_output dms_source_endpoint_arn
 print_output dms_target_endpoint_arn
-print_output dms_task_id
-print_output dms_task_arn
-print_output dms_target_s3_path
-print_output dms_secrets_manager_secret_arn
+print_output dms_replication_config_identifier
+print_output dms_security_group_id
 
 # ---------------------------------------------------------------------------
 # STEP 10: Post-deploy verification
@@ -449,6 +356,7 @@ require_cmd jq
 
 REGION="${AWS_REGION:-us-east-1}"
 PROJECT_NAME="${TF_VAR_project_name:-$(grep -E '^project_name' "$TFVARS_FILE" | head -1 | cut -d= -f2 | tr -d ' \"')}"
+PROJECT_NAME="${PROJECT_NAME//$'\r'}"
 if [ -z "$PROJECT_NAME" ]; then
   fail "Não foi possível determinar project_name; defina TF_VAR_project_name ou edite o tfvars"
   exit 3
@@ -599,29 +507,18 @@ if [ "$APIGW_LG_COUNT" -gt 0 ]; then
 fi
 
 # ---------------------------------------------------------------------------
-# 10.7 DMS
+# 10.7 DMS Serverless
 # ---------------------------------------------------------------------------
-section "10.7 — DMS (Database Migration Service)"
-DMS_INSTANCES=$(aws dms describe-replication-instances --region "$REGION" \
-  --query "ReplicationInstances[?contains(ReplicationInstanceIdentifier, \`${PROJECT_NAME}\`)].{ID:ReplicationInstanceIdentifier,Status:ReplicationInstanceStatus}" \
+section "10.7 — DMS Serverless"
+DMS_CONFIGS=$(aws dms describe-replication-configs --region "$REGION" \
+  --query "ReplicationConfigs[?contains(ReplicationConfigIdentifier, \`${PROJECT_NAME}\`)].{ID:ReplicationConfigIdentifier,Status:Status}" \
   --output json 2>/dev/null || echo "[]")
-DMS_COUNT=$(echo "$DMS_INSTANCES" | jq 'length')
-if [ "$DMS_COUNT" -gt 0 ]; then
-  ok "$DMS_COUNT DMS replication instance(s):"
-  echo "$DMS_INSTANCES" | jq -r '.[] | "   - \(.ID) (status: \(.Status))"'
+DMS_CONFIG_COUNT=$(echo "$DMS_CONFIGS" | jq 'length')
+if [ "$DMS_CONFIG_COUNT" -gt 0 ]; then
+  ok "$DMS_CONFIG_COUNT DMS Serverless config(s):"
+  echo "$DMS_CONFIGS" | jq -r '.[] | "   - \(.ID) (status: \(.Status))"'
 else
-  warn "Nenhuma DMS replication instance do projeto encontrada"
-fi
-
-DMS_TASKS=$(aws dms describe-replication-tasks --region "$REGION" \
-  --query "ReplicationTasks[?contains(ReplicationTaskIdentifier, \`${PROJECT_NAME}\`)].{ID:ReplicationTaskIdentifier,Status:Status}" \
-  --output json 2>/dev/null || echo "[]")
-DMS_TASK_COUNT=$(echo "$DMS_TASKS" | jq 'length')
-if [ "$DMS_TASK_COUNT" -gt 0 ]; then
-  ok "$DMS_TASK_COUNT DMS task(s):"
-  echo "$DMS_TASKS" | jq -r '.[] | "   - \(.ID) (status: \(.Status))"'
-else
-  warn "Nenhuma DMS task do projeto encontrada (pode ser intencional se DMS estiver desabilitado)"
+  warn "Nenhuma DMS Serverless config do projeto encontrada"
 fi
 
 # ---------------------------------------------------------------------------

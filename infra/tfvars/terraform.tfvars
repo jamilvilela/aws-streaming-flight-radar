@@ -27,7 +27,7 @@ tables = {
 # Lambda Functions Configuration
 lambda_functions = {
   flights_raw = {
-    name              = "flights_raw"
+    name              = "flights-raw"
     handler           = "lambda_function.lambda_handler"
     runtime           = "python3.12"
     timeout           = 30
@@ -68,43 +68,44 @@ tags = {
 
 
 # =============================================================================
-# CLOUDWATCH MONITORING
+# Aurora Serverless v2 PostgreSQL Configuration
+# =============================================================================
+# NOTA: Aurora Serverless v2 usa engine_mode="provisioned" com serverlessv2_scaling_configuration.
+# O armazenamento é gerenciado automaticamente pelo Aurora (não há allocated_storage).
+# A replicação lógica (pglogical) é configurada no cluster parameter group para DMS CDC.
 # =============================================================================
 # =============================================================================
-# RDS PostgreSQL configuration (lab / dev)
-# =============================================================================
-rds_config = {
+
+aurora_config = {
   vpc_id              = "vpc-022139f6bee3cbdd5"
   subnet_ids          = ["subnet-0051cb2e25a8a1cd7", "subnet-060fa607df99778da", "subnet-0033d0f717071e145"]
   allowed_cidr_blocks = ["0.0.0.0/0"]
   db_name             = "flightradar"
   admin_username      = "dbadmin"
-  admin_password      = "" # override via RDS_ADMIN_PASSWORD in .env
-  instance_class      = "db.t3.micro"
+  admin_password      = ""  # override via RDS_ADMIN_PASSWORD in .env
 
-  allocated_storage_gb     = 20
-  max_allocated_storage_gb = 100
-  backup_retention_days    = 7
-  publicly_accessible      = true
-  snapshot_identifier      = null
-  skip_final_snapshot      = true
-  deletion_protection      = false
-  read_replicas = [
-    {
-      instance_class       = "db.t3.micro"
-      allocated_storage_gb = 20
-      publicly_accessible  = false
-    },
-  ]  
+  # Aurora Serverless v2 scaling: 0.5 ACU (min) - 8 ACU (max)
+  serverless_min_capacity = 0.5
+  serverless_max_capacity = 8
+
+  backup_retention_days = 7
+  publicly_accessible   = true
+  snapshot_identifier   = null
+  skip_final_snapshot   = false
+  deletion_protection   = false
+  reader_count                = 0  # 0 = apenas writer (mais econômico)
+  auto_minor_version_upgrade = true
 }
 
 ################################################
-# DMS Configuration (disabled by default)
+# DMS Serverless Configuration
+# DMS Serverless gerencia o compute automaticamente — sem necessidade de
+# escolher classe de instância ou armazenamento.
+# min_capacity_units=1 / max_capacity_units=4 para full-load-and-cdc.
 dms_config = {
-  enabled                      = true
-  replication_instance_class   = "dms.t3.small"
-  replication_storage_gb       = 50
-  engine_version               = "3.5.4"
+  enabled            = true
+  min_capacity_units = 1
+  max_capacity_units = 4
 }
 
 alarm_thresholds = {

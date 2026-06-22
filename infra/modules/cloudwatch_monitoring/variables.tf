@@ -65,15 +65,6 @@ variable "kda_application_name" {
 }
 
 # =============================================================================
-# DMS
-# =============================================================================
-variable "dms_task_id" {
-  description = "ID da tarefa de replicação DMS"
-  type        = string
-  default     = ""
-}
-
-# =============================================================================
 # SQS
 # =============================================================================
 variable "sqs_queue_name" {
@@ -87,6 +78,30 @@ variable "sqs_queue_name" {
 # =============================================================================
 variable "s3_landing_bucket_name" {
   description = "Nome do bucket S3 de destino (landing) para métricas DMS"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# Aurora Serverless v2
+# =============================================================================
+variable "aurora_instance_identifier" {
+  description = "Identificador da instância writer do Aurora Serverless v2 para métricas no dashboard"
+  type        = string
+  default     = ""
+}
+
+variable "aurora_cluster_identifier" {
+  description = "Identificador do cluster Aurora Serverless v2 para métricas de cluster no dashboard (VolumeBytesUsed)"
+  type        = string
+  default     = ""
+}
+
+# =============================================================================
+# DMS Serverless
+# =============================================================================
+variable "dms_serverless_config_id" {
+  description = "Identificador da config DMS Serverless para métricas no dashboard"
   type        = string
   default     = ""
 }
