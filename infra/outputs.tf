@@ -41,102 +41,81 @@ output "api_key_value" {
 }
 
 # ============================================================================
-# RDS PostgreSQL outputs
+# Aurora Serverless v2 outputs
 # ============================================================================
 
-output "rds_endpoint" {
-  description = "RDS PostgreSQL endpoint address"
-  value       = module.rds_postgres.db_endpoint
+output "aurora_endpoint" {
+  description = "Aurora Serverless v2 cluster writer endpoint address"
+  value       = module.aurora_postgres.db_endpoint
 }
 
-output "rds_port" {
-  description = "RDS PostgreSQL port"
-  value       = module.rds_postgres.db_port
+output "aurora_reader_endpoint" {
+  description = "Aurora Serverless v2 cluster reader endpoint address"
+  value       = module.aurora_postgres.db_reader_endpoint
 }
 
-output "rds_db_name" {
-  description = "RDS PostgreSQL database name"
-  value       = module.rds_postgres.db_name
+output "aurora_port" {
+  description = "Aurora Serverless v2 cluster port"
+  value       = module.aurora_postgres.db_port
 }
 
-output "rds_instance_arn" {
-  description = "ARN of the RDS instance"
-  value       = module.rds_postgres.db_instance_arn
+output "aurora_db_name" {
+  description = "Aurora Serverless v2 database name"
+  value       = module.aurora_postgres.db_name
 }
 
-output "rds_security_group_id" {
-  description = "RDS security group ID"
-  value       = module.rds_postgres.security_group_id
+output "aurora_cluster_arn" {
+  description = "ARN of the Aurora cluster"
+  value       = module.aurora_postgres.cluster_arn
 }
 
-output "rds_psql_connection" {
-  description = "psql connection command"
-  value       = module.rds_postgres.psql_connection
+output "aurora_security_group_id" {
+  description = "Aurora Serverless v2 security group ID"
+  value       = module.aurora_postgres.security_group_id
+}
+
+output "aurora_connection" {
+  description = "Aurora connection string for psql"
+  value       = module.aurora_postgres.aurora_connection
   sensitive   = true
 }
 
-output "rds_admin_username" {
-  description = "RDS PostgreSQL admin username"
-  value       = module.rds_postgres.admin_username
-  sensitive   = true
-}
-
-output "rds_connection_string" {
-  description = "JDBC connection string"
-  value       = module.rds_postgres.connection_string
+output "aurora_admin_username" {
+  description = "Aurora Serverless v2 admin username"
+  value       = module.aurora_postgres.admin_username
   sensitive   = true
 }
 
 # ============================================================================
-# DMS outputs
+# DMS Serverless outputs
 # ============================================================================
 
-output "dms_replication_instance_arn" {
-  description = "ARN of the DMS replication instance"
-  value       = try(module.dms[0].replication_instance_arn, null)
+output "dms_replication_config_arn" {
+  description = "ARN of the DMS Serverless replication config"
+  value       = try(module.dms_serverless[0].replication_config_arn, null)
 }
 
-output "dms_replication_instance_id" {
-  description = "ID of the DMS replication instance"
-  value       = try(module.dms[0].replication_instance_id, null)
+output "dms_replication_config_id" {
+  description = "ID of the DMS Serverless replication config"
+  value       = try(module.dms_serverless[0].replication_config_id, null)
+}
+
+output "dms_replication_config_identifier" {
+  description = "Identifier (name) of the DMS Serverless replication config"
+  value       = try(module.dms_serverless[0].replication_config_identifier, null)
 }
 
 output "dms_source_endpoint_arn" {
-  description = "ARN of the DMS source endpoint (RDS PostgreSQL)"
-  value       = try(module.dms[0].source_endpoint_arn, null)
+  description = "ARN of the DMS source endpoint (Aurora PostgreSQL)"
+  value       = try(module.dms_serverless[0].source_endpoint_arn, null)
 }
 
 output "dms_target_endpoint_arn" {
   description = "ARN of the DMS target endpoint (S3 Parquet)"
-  value       = try(module.dms[0].target_endpoint_arn, null)
+  value       = try(module.dms_serverless[0].target_endpoint_arn, null)
 }
 
-output "dms_task_arn" {
-  description = "ARN of the DMS replication task"
-  value       = try(module.dms[0].task_arn, null)
-}
-
-output "dms_task_id" {
-  description = "ID of the DMS replication task"
-  value       = try(module.dms[0].task_id, null)
-}
-
-output "dms_kms_key_arn" {
-  description = "ARN of the DMS KMS key"
-  value       = try(module.dms[0].kms_key_arn, null)
-}
-
-output "dms_secrets_manager_secret_arn" {
-  description = "ARN of the Secrets Manager secret (RDS credentials)"
-  value       = try(module.dms[0].secrets_manager_secret_arn, null)
-}
-
-output "dms_target_s3_path" {
-  description = "S3 path where DMS writes Parquet data"
-  value       = try(module.dms[0].target_s3_path, null)
-}
-
-output "rds_replicas" {
-  description = "Read replica endpoints"
-  value       = module.rds_postgres.replicas
+output "dms_security_group_id" {
+  description = "DMS Serverless security group ID"
+  value       = try(module.dms_serverless[0].dms_security_group_id, null)
 }

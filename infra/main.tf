@@ -105,55 +105,54 @@ module "api_gateway" {
   tags = var.tags
 }
 
-module "rds_postgres" {
-  source = "./modules/rds_postgres"
+module "aurora_postgres" {
+  source = "./modules/aurora_postgres"
 
   project_name = var.project_name
   environment  = var.environment
 
-  vpc_id              = var.rds_config.vpc_id
-  subnet_ids          = var.rds_config.subnet_ids
-  allowed_cidr_blocks = var.rds_config.allowed_cidr_blocks
-  db_name             = var.rds_config.db_name
-  admin_username      = var.rds_config.admin_username
-  admin_password      = var.rds_admin_password != null ? var.rds_admin_password : var.rds_config.admin_password
-  instance_class      = var.rds_config.instance_class
+  vpc_id              = var.aurora_config.vpc_id
+  subnet_ids          = var.aurora_config.subnet_ids
+  allowed_cidr_blocks = var.aurora_config.allowed_cidr_blocks
+  db_name             = var.aurora_config.db_name
+  admin_username      = var.aurora_config.admin_username
+  admin_password      = var.rds_admin_password != null ? var.rds_admin_password : var.aurora_config.admin_password
 
-  snapshot_identifier      = var.rds_snapshot_identifier != null ? var.rds_snapshot_identifier : var.rds_config.snapshot_identifier
-  read_replicas            = var.rds_config.read_replicas
-  allocated_storage_gb     = var.rds_config.allocated_storage_gb
-  max_allocated_storage_gb = var.rds_config.max_allocated_storage_gb
-  backup_retention_days    = var.rds_config.backup_retention_days
-  publicly_accessible      = var.rds_config.publicly_accessible
-  skip_final_snapshot      = var.rds_config.skip_final_snapshot
-  deletion_protection      = var.rds_config.deletion_protection
-  log_retention_days       = var.rds_config.log_retention_days
+  snapshot_identifier      = var.rds_snapshot_identifier != null ? var.rds_snapshot_identifier : var.aurora_config.snapshot_identifier
+  serverless_min_capacity  = var.aurora_config.serverless_min_capacity
+  serverless_max_capacity  = var.aurora_config.serverless_max_capacity
+  backup_retention_days    = var.aurora_config.backup_retention_days
+  publicly_accessible      = var.aurora_config.publicly_accessible
+  skip_final_snapshot      = var.aurora_config.skip_final_snapshot
+  deletion_protection      = var.aurora_config.deletion_protection
+  log_retention_days       = var.aurora_config.log_retention_days
+  reader_count             = var.aurora_config.reader_count
+  auto_minor_version_upgrade = var.aurora_config.auto_minor_version_upgrade
 
   tags = var.tags
 }
 
-module "dms" {
+module "dms_serverless" {
   count  = var.dms_config.enabled ? 1 : 0
-  source = "./modules/dms"
+  source = "./modules/dms_serverless"
 
   project_name = var.project_name
   environment  = var.environment
   region       = var.aws_region
 
-  vpc_id              = var.rds_config.vpc_id
-  subnet_ids          = var.rds_config.subnet_ids
-  rds_security_group_id = module.rds_postgres.security_group_id
+  vpc_id                  = var.aurora_config.vpc_id
+  subnet_ids              = var.aurora_config.subnet_ids
+  aurora_security_group_id = module.aurora_postgres.security_group_id
 
-  rds_endpoint = module.rds_postgres.db_endpoint
-  rds_port     = module.rds_postgres.db_port
-  rds_db_name  = module.rds_postgres.db_name
+  aurora_endpoint = module.aurora_postgres.db_endpoint
+  aurora_port     = module.aurora_postgres.db_port
+  aurora_db_name  = module.aurora_postgres.db_name
 
-  landing_bucket_name          = local.buckets.landing
-  replication_instance_class   = var.dms_config.replication_instance_class
-  replication_storage_gb       = var.dms_config.replication_storage_gb
-  replication_engine_version   = var.dms_config.engine_version
-  dms_task_settings            = var.dms_config.dms_task_settings
-  table_mappings               = var.dms_config.table_mappings != null ? var.dms_config.table_mappings : jsonencode({
+  landing_bucket_name    = local.buckets.landing
+  min_capacity_units     = var.dms_config.min_capacity_units
+  max_capacity_units     = var.dms_config.max_capacity_units
+  replication_settings   = var.dms_config.replication_settings
+  table_mappings         = var.dms_config.table_mappings != null ? var.dms_config.table_mappings : jsonencode({
     rules = [
       {
         "rule-type"     = "selection"
@@ -222,7 +221,7 @@ module "dms" {
   tags               = var.tags
 
   depends_on = [
-    module.rds_postgres
+    module.aurora_postgres
   ]
 }
 
@@ -291,14 +290,17 @@ module "cloudwatch_monitoring" {
 
   kda_application_name = module.kinesis_analytics_flights.kda_application_name
 
-  dms_task_id = var.dms_config.enabled ? module.dms[0].task_id : ""
-
   sqs_queue_name = module.flights_dlq.queue_name
+
+  aurora_instance_identifier = module.aurora_postgres.writer_instance_id
+  aurora_cluster_identifier  = module.aurora_postgres.cluster_identifier
+  dms_serverless_config_id   = var.dms_config.enabled ? module.dms_serverless[0].replication_config_identifier : ""
 
   s3_landing_bucket_name = local.buckets.landing
 
   depends_on = [
     module.kinesis_analytics_flights,
-    module.dms,
+    module.dms_serverless,
+    module.aurora_postgres,
   ]
 }

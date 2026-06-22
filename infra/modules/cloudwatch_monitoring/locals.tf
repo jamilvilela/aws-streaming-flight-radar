@@ -426,7 +426,7 @@ locals {
         period      = local.period
         stat        = "Average"
         region      = var.aws_region
-        metrics     = [["AWS/KinesisAnalytics", "KPUUtilization", "Application", var.kda_application_name, { label = "KPU %", color = local.colors.purple }]]
+        metrics     = [["AWS/KinesisAnalytics", "KPUs", "Application", var.kda_application_name, { label = "KPU Count", color = local.colors.purple }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0, max = 100, label = "%" } }
         annotations = { horizontal = [] }
@@ -445,7 +445,7 @@ locals {
         period      = local.period
         stat        = "Sum"
         region      = var.aws_region
-        metrics     = [["AWS/KinesisAnalytics", "numMessagesIn", "Application", var.kda_application_name, { label = "In", color = local.colors.info }]]
+        metrics     = [["AWS/KinesisAnalytics", "numRecordsIn", "Application", var.kda_application_name, { label = "In", color = local.colors.info }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
         annotations = { horizontal = [] }
@@ -464,7 +464,7 @@ locals {
         period      = local.period
         stat        = "Sum"
         region      = var.aws_region
-        metrics     = [["AWS/KinesisAnalytics", "numMessagesOut", "Application", var.kda_application_name, { label = "Out", color = local.colors.success }]]
+        metrics     = [["AWS/KinesisAnalytics", "numRecordsOut", "Application", var.kda_application_name, { label = "Out", color = local.colors.success }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
         annotations = { horizontal = [] }
@@ -491,7 +491,7 @@ locals {
     } if var.kda_application_name != ""],
 
     # ═══════════════════════════════════════════════════════════════════
-    # 🔄 DMS (RDS → S3)
+    # 🗄️ Aurora Serverless v2
     # ═══════════════════════════════════════════════════════════════════
     [for i in [0] : {
       type       = "text"
@@ -499,10 +499,10 @@ locals {
       y          = 31
       width      = 24
       height     = 1
-      properties = { markdown = "## 🔄 DMS — RDS → S3 (Lake)" }
-    } if var.dms_task_id != ""],
+      properties = { markdown = "## 🗄️ Aurora Serverless v2 — PostgreSQL" }
+    } if var.aurora_instance_identifier != ""],
 
-    # CDC Changes
+    # Database Connections
     [for i in [0] : {
       type   = "metric"
       x      = 0
@@ -510,18 +510,18 @@ locals {
       width  = 6
       height = 5
       properties = {
-        title       = "🔄 CDC Changes"
+        title       = "🔗 Conexões Ativas"
         period      = local.period
-        stat        = "Sum"
+        stat        = "Average"
         region      = var.aws_region
-        metrics     = [["AWS/DMS", "CDCIncomingChanges", "ReplicationTaskIdentifier", var.dms_task_id, { label = "Changes", color = local.colors.info }]]
+        metrics     = [["AWS/RDS", "DatabaseConnections", "DBInstanceIdentifier", var.aurora_instance_identifier, { label = "Conexões", color = local.colors.cyan }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
         annotations = { horizontal = [] }
       }
-    } if var.dms_task_id != ""],
+    } if var.aurora_instance_identifier != ""],
 
-    # Throughput
+    # Read/Write IOPS
     [for i in [0] : {
       type   = "metric"
       x      = 6
@@ -529,22 +529,116 @@ locals {
       width  = 6
       height = 5
       properties = {
+        title       = "💾 IOPS (Leitura/Escrita)"
+        period      = local.period
+        stat        = "Average"
+        region      = var.aws_region
+        metrics     = [
+          ["AWS/RDS", "ReadIOPS", "DBInstanceIdentifier", var.aurora_instance_identifier, { label = "Read", color = local.colors.info }],
+          ["AWS/RDS", "WriteIOPS", "DBInstanceIdentifier", var.aurora_instance_identifier, { label = "Write", color = local.colors.success }],
+        ]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0, label = "IOPS" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.aurora_instance_identifier != ""],
+
+    # Read/Write Latency
+    [for i in [0] : {
+      type   = "metric"
+      x      = 12
+      y      = 32
+      width  = 6
+      height = 5
+      properties = {
+        title       = "⏱️ Latência (ms)"
+        period      = local.period
+        stat        = "Average"
+        region      = var.aws_region
+        metrics     = [
+          ["AWS/RDS", "ReadLatency", "DBInstanceIdentifier", var.aurora_instance_identifier, { label = "Read ms", color = local.colors.info }],
+          ["AWS/RDS", "WriteLatency", "DBInstanceIdentifier", var.aurora_instance_identifier, { label = "Write ms", color = local.colors.success }],
+        ]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0, label = "ms" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.aurora_instance_identifier != ""],
+
+    # Free Storage Space (Aurora auto-scaling — mostra o cluster storage)
+    [for i in [0] : {
+      type   = "metric"
+      x      = 18
+      y      = 32
+      width  = 6
+      height = 5
+      properties = {
+        title       = "💿 Volume do Cluster (Bytes)"
+        period      = local.period
+        stat        = "Average"
+        region      = var.aws_region
+        metrics     = [["AWS/RDS", "VolumeBytesUsed", "DBClusterIdentifier", var.aurora_cluster_identifier, { label = "Bytes", color = local.colors.purple }]]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0, label = "Bytes" } }
+        annotations = { horizontal = [] }
+      }
+    } if var.aurora_cluster_identifier != ""],
+
+    # ═══════════════════════════════════════════════════════════════════
+    # 🔄 DMS Serverless (Aurora → S3)
+    # ═══════════════════════════════════════════════════════════════════
+    [for i in [0] : {
+      type       = "text"
+      x          = 0
+      y          = 37
+      width      = 24
+      height     = 1
+      properties = { markdown = "## 🔄 DMS Serverless — Aurora → S3 (Lake)" }
+    } if var.dms_serverless_config_id != ""],
+
+    # CDC Changes
+    [for i in [0] : {
+      type   = "metric"
+      x      = 0
+      y      = 38
+      width  = 6
+      height = 5
+      properties = {
+        title       = "🔄 CDC Changes"
+        period      = local.period
+        stat        = "Sum"
+        region      = var.aws_region
+        metrics     = [["AWS/DMS", "CDCIncomingChanges", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Changes", color = local.colors.info }]]
+        view        = "timeSeries"
+        yAxis       = { left = { min = 0 } }
+        annotations = { horizontal = [] }
+      }
+    } if var.dms_serverless_config_id != ""],
+
+    # Throughput
+    [for i in [0] : {
+      type   = "metric"
+      x      = 6
+      y      = 38
+      width  = 6
+      height = 5
+      properties = {
         title       = "📊 Throughput (MB/s)"
         period      = local.period
         stat        = "Average"
         region      = var.aws_region
-        metrics     = [["AWS/DMS", "CdcThroughputBandwidth", "ReplicationTaskIdentifier", var.dms_task_id, { label = "MB/s", color = local.colors.cyan }]]
+        metrics     = [["AWS/DMS", "CdcThroughputBandwidth", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "MB/s", color = local.colors.cyan }]]
         view        = "timeSeries"
         yAxis       = { left = { min = 0, label = "MB/s" } }
         annotations = { horizontal = [] }
       }
-    } if var.dms_task_id != ""],
+    } if var.dms_serverless_config_id != ""],
 
     # Latency
     [for i in [0] : {
       type   = "metric"
       x      = 12
-      y      = 32
+      y      = 38
       width  = 6
       height = 5
       properties = {
@@ -553,20 +647,20 @@ locals {
         stat        = "Average"
         region      = var.aws_region
         metrics     = [
-          ["AWS/DMS", "CDCLatencySource", "ReplicationTaskIdentifier", var.dms_task_id, { label = "Source", color = local.colors.warning }],
-          ["AWS/DMS", "CDCLatencyTarget", "ReplicationTaskIdentifier", var.dms_task_id, { label = "Target", color = local.colors.error }],
+          ["AWS/DMS", "CDCLatencySource", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Source", color = local.colors.warning }],
+          ["AWS/DMS", "CDCLatencyTarget", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "Target", color = local.colors.error }],
         ]
         view        = "timeSeries"
         yAxis       = { left = { min = 0, label = "seg" } }
         annotations = { horizontal = [] }
       }
-    } if var.dms_task_id != ""],
+    } if var.dms_serverless_config_id != ""],
 
     # Errors
     [for i in [0] : {
       type   = "metric"
       x      = 18
-      y      = 32
+      y      = 38
       width  = 6
       height = 5
       properties = {
@@ -575,14 +669,14 @@ locals {
         stat        = "Sum"
         region      = var.aws_region
         metrics     = [
-          ["AWS/DMS", "CDCErrors", "ReplicationTaskIdentifier", var.dms_task_id, { label = "CDC Err", color = local.colors.error }],
-          ["AWS/DMS", "FullLoadErrors", "ReplicationTaskIdentifier", var.dms_task_id, { label = "FL Err", color = local.colors.warning }],
+          ["AWS/DMS", "CDCChangesFailed", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "CDC Err", color = local.colors.error }],
+          ["AWS/DMS", "FullLoadErrors", "ReplicationConfigIdentifier", var.dms_serverless_config_id, { label = "FL Err", color = local.colors.warning }],
         ]
         view        = "timeSeries"
         yAxis       = { left = { min = 0 } }
         annotations = { horizontal = [] }
       }
-    } if var.dms_task_id != ""],
+    } if var.dms_serverless_config_id != ""],
 
     # ═══════════════════════════════════════════════════════════════════
     # 📬 SQS DLQ
@@ -590,7 +684,7 @@ locals {
     [for i in [0] : {
       type       = "text"
       x          = 0
-      y          = 37
+      y          = 43
       width      = 24
       height     = 1
       properties = { markdown = "## 📬 SQS DLQ (Dead Letter Queue)" }
@@ -600,7 +694,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 0
-      y      = 38
+      y      = 44
       width  = 8
       height = 5
       properties = {
@@ -619,7 +713,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 8
-      y      = 38
+      y      = 44
       width  = 8
       height = 5
       properties = {
@@ -638,7 +732,7 @@ locals {
     [for i in [0] : {
       type   = "metric"
       x      = 16
-      y      = 38
+      y      = 44
       width  = 8
       height = 5
       properties = {
@@ -659,21 +753,21 @@ locals {
     [for i in [0] : {
       type       = "text"
       x          = 0
-      y          = 43
+      y          = 49
       width      = 24
       height     = 1
       properties = { markdown = "## 💾 S3 Landing — Lake" }
     } if var.s3_landing_bucket_name != ""],
 
-    # Bucket Size
+    # Bucket Size — time series (evolução 1 ano)
     [for i in [0] : {
       type   = "metric"
       x      = 0
-      y      = 44
+      y      = 50
       width  = 12
       height = 5
       properties = {
-        title       = "📦 Bucket Size (Bytes)"
+        title       = "📦 Evolução Bucket Size (Bytes)"
         period      = 86400  # 1 dia — métrica diária
         stat        = "Average"
         region      = var.aws_region
@@ -684,15 +778,15 @@ locals {
       }
     } if var.s3_landing_bucket_name != ""],
 
-    # Object Count
+    # Object Count — time series (evolução 1 ano)
     [for i in [0] : {
       type   = "metric"
       x      = 12
-      y      = 44
+      y      = 50
       width  = 12
       height = 5
       properties = {
-        title       = "📄 Number of Objects"
+        title       = "📄 Evolução Number of Objects"
         period      = 86400  # 1 dia
         stat        = "Average"
         region      = var.aws_region

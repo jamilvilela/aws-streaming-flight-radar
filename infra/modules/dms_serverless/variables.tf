@@ -19,62 +19,73 @@ variable "vpc_id" {
 }
 
 variable "subnet_ids" {
-  description = "Subnet IDs for DMS replication instance (minimum 2)"
+  description = "Subnet IDs for DMS Serverless (minimum 2)"
   type        = list(string)
 }
 
-variable "rds_endpoint" {
-  description = "RDS PostgreSQL endpoint address"
+# Aurora connection info
+variable "aurora_endpoint" {
+  description = "Aurora cluster writer endpoint address"
   type        = string
 }
 
-variable "rds_port" {
-  description = "RDS PostgreSQL port"
+variable "aurora_port" {
+  description = "Aurora cluster port"
   type        = number
   default     = 5432
 }
 
-variable "rds_db_name" {
-  description = "RDS PostgreSQL database name"
+variable "aurora_db_name" {
+  description = "Aurora database name"
   type        = string
 }
 
-variable "rds_security_group_id" {
-  description = "RDS security group ID (DMS needs ingress)"
+variable "aurora_security_group_id" {
+  description = "Aurora security group ID (DMS needs ingress)"
   type        = string
 }
 
+# S3 landing bucket
 variable "landing_bucket_name" {
   description = "S3 landing bucket name for DMS target output"
   type        = string
 }
 
-variable "replication_instance_class" {
-  description = "DMS replication instance class"
-  type        = string
-  default     = "dms.t3.micro"
-}
-
-variable "replication_storage_gb" {
-  description = "Allocated storage for DMS replication instance in GB"
-  type        = number
-  default     = 50
-}
-
-variable "replication_engine_version" {
-  description = "DMS replication engine version"
-  type        = string
-  default     = "3.6.1"
-}
-
-variable "dms_task_settings" {
-  description = "DMS task settings JSON (full load + CDC)"
+# KMS
+variable "kms_key_arn" {
+  description = "KMS key ARN for DMS encryption and Secrets Manager"
   type        = string
   default     = null
 }
 
+# DMS Serverless scaling
+variable "min_capacity_units" {
+  description = "Minimum DMS Serverless capacity units (1 = 1 ACU, min 1 for full-load-and-cdc)"
+  type        = number
+  default     = 1
+}
+
+variable "max_capacity_units" {
+  description = "Maximum DMS Serverless capacity units"
+  type        = number
+  default     = 4
+}
+
+variable "multi_az" {
+  description = "Enable Multi-AZ for DMS Serverless"
+  type        = bool
+  default     = false
+}
+
+# Task configuration
 variable "table_mappings" {
   description = "DMS table mappings JSON (selection rules, transformations)"
+  type        = string
+  default     = null
+}
+
+variable "replication_settings" {
+  description = "DMS replication settings JSON (task settings)"
   type        = string
   default     = null
 }

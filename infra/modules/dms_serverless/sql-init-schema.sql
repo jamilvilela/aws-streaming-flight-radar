@@ -8,7 +8,7 @@ CREATE SCHEMA IF NOT EXISTS flight_radar;
 SET search_path TO flight_radar;
 
 -- Aircraft registry dimension
-CREATE TABLE IF NOT EXISTS aircraft (
+CREATE TABLE IF NOT EXISTS flight_radar.aircraft (
     icao24          VARCHAR(6) PRIMARY KEY,
     registration    VARCHAR(20),
     aircraft_type   VARCHAR(10),
@@ -23,7 +23,7 @@ CREATE TABLE IF NOT EXISTS aircraft (
 );
 
 -- Airport dimension
-CREATE TABLE IF NOT EXISTS airports (
+CREATE TABLE IF NOT EXISTS flight_radar.airports (
     icao_code   VARCHAR(4) PRIMARY KEY,
     iata_code   VARCHAR(3),
     name        VARCHAR(200),
@@ -38,7 +38,7 @@ CREATE TABLE IF NOT EXISTS airports (
 );
 
 -- Airline dimension
-CREATE TABLE IF NOT EXISTS airlines (
+CREATE TABLE IF NOT EXISTS flight_radar.airlines (
     icao_code   VARCHAR(3) PRIMARY KEY,
     iata_code   VARCHAR(2),
     name        VARCHAR(200),
@@ -49,13 +49,13 @@ CREATE TABLE IF NOT EXISTS airlines (
 );
 
 -- Flight schedule / instance fact
-CREATE TABLE IF NOT EXISTS flights (
+CREATE TABLE IF NOT EXISTS flight_radar.flights (
     flight_id           BIGSERIAL PRIMARY KEY,
     flight_number       VARCHAR(10),
-    airline_icao        VARCHAR(3) REFERENCES airlines(icao_code),
-    aircraft_icao24     VARCHAR(6) REFERENCES aircraft(icao24),
-    origin_airport      VARCHAR(4) REFERENCES airports(icao_code),
-    destination_airport VARCHAR(4) REFERENCES airports(icao_code),
+    airline_icao        VARCHAR(3) REFERENCES flight_radar.airlines(icao_code),
+    aircraft_icao24     VARCHAR(6) REFERENCES flight_radar.aircraft(icao24),
+    origin_airport      VARCHAR(4) REFERENCES flight_radar.airports(icao_code),
+    destination_airport VARCHAR(4) REFERENCES flight_radar.airports(icao_code),
     scheduled_departure TIMESTAMPTZ,
     scheduled_arrival   TIMESTAMPTZ,
     actual_departure    TIMESTAMPTZ,
@@ -67,10 +67,10 @@ CREATE TABLE IF NOT EXISTS flights (
 );
 
 -- High-volume position fact (mimics streaming data)
-CREATE TABLE IF NOT EXISTS aircraft_positions (
+CREATE TABLE IF NOT EXISTS flight_radar.aircraft_positions (
     position_id     BIGSERIAL PRIMARY KEY,
-    aircraft_icao24 VARCHAR(6) NOT NULL REFERENCES aircraft(icao24),
-    flight_id       BIGINT REFERENCES flights(flight_id),
+    aircraft_icao24 VARCHAR(6) NOT NULL REFERENCES flight_radar.aircraft(icao24),
+    flight_id       BIGINT REFERENCES flight_radar.flights(flight_id),
     latitude        DECIMAL(10,7),
     longitude       DECIMAL(10,7),
     altitude_ft     INTEGER,
@@ -83,19 +83,19 @@ CREATE TABLE IF NOT EXISTS aircraft_positions (
 );
 
 -- Indexes for query performance
-CREATE INDEX IF NOT EXISTS idx_positions_aircraft    ON aircraft_positions(aircraft_icao24);
-CREATE INDEX IF NOT EXISTS idx_positions_recorded    ON aircraft_positions(recorded_at DESC);
-CREATE INDEX IF NOT EXISTS idx_flights_status        ON flights(status);
-CREATE INDEX IF NOT EXISTS idx_flights_aircraft      ON flights(aircraft_icao24);
-CREATE INDEX IF NOT EXISTS idx_flights_airline       ON flights(airline_icao);
-CREATE INDEX IF NOT EXISTS idx_flights_origin        ON flights(origin_airport);
-CREATE INDEX IF NOT EXISTS idx_flights_destination   ON flights(destination_airport);
+CREATE INDEX IF NOT EXISTS idx_positions_aircraft    ON flight_radar.aircraft_positions(aircraft_icao24);
+CREATE INDEX IF NOT EXISTS idx_positions_recorded    ON flight_radar.aircraft_positions(recorded_at DESC);
+CREATE INDEX IF NOT EXISTS idx_flights_status        ON flight_radar.flights(status);
+CREATE INDEX IF NOT EXISTS idx_flights_aircraft      ON flight_radar.flights(aircraft_icao24);
+CREATE INDEX IF NOT EXISTS idx_flights_airline       ON flight_radar.flights(airline_icao);
+CREATE INDEX IF NOT EXISTS idx_flights_origin        ON flight_radar.flights(origin_airport);
+CREATE INDEX IF NOT EXISTS idx_flights_destination   ON flight_radar.flights(destination_airport);
 
 -- =============================================================================
 -- Sample seed data for lab testing
 -- =============================================================================
 
-INSERT INTO aircraft (icao24, registration, aircraft_type, manufacturer, model, operator_icao, operator_name) VALUES
+INSERT INTO flight_radar.aircraft (icao24, registration, aircraft_type, manufacturer, model, operator_icao, operator_name) VALUES
     ('a0f1b2', 'N12345', 'B738', 'Boeing', '737-800', 'AAL', 'American Airlines'),
     ('a1b2c3', 'D-ABYT', 'A320', 'Airbus', 'A320-200', 'DLH', 'Lufthansa'),
     ('b2c3d4', 'EC-MQU', 'A333', 'Airbus', 'A330-300', 'VLG', 'Vueling Airlines'),
@@ -103,7 +103,7 @@ INSERT INTO aircraft (icao24, registration, aircraft_type, manufacturer, model, 
     ('d4e5f6', 'N67890', 'B77W', 'Boeing', '777-300ER', 'DAL', 'Delta Air Lines')
 ON CONFLICT (icao24) DO NOTHING;
 
-INSERT INTO airports (icao_code, iata_code, name, city, country, country_code, latitude, longitude, timezone) VALUES
+INSERT INTO flight_radar.airports (icao_code, iata_code, name, city, country, country_code, latitude, longitude, timezone) VALUES
     ('KJFK', 'JFK', 'John F Kennedy International Airport', 'New York', 'United States', 'US', 40.639801, -73.778900, 'America/New_York'),
     ('EGLL', 'LHR', 'London Heathrow Airport', 'London', 'United Kingdom', 'GB', 51.477500, -0.461389, 'Europe/London'),
     ('LFPG', 'CDG', 'Paris Charles de Gaulle Airport', 'Paris', 'France', 'FR', 49.012798, 2.550000, 'Europe/Paris'),
@@ -111,7 +111,7 @@ INSERT INTO airports (icao_code, iata_code, name, city, country, country_code, l
     ('SBGR', 'GRU', 'São Paulo/Guarulhos International Airport', 'São Paulo', 'Brazil', 'BR', -23.435556, -46.473056, 'America/Sao_Paulo')
 ON CONFLICT (icao_code) DO NOTHING;
 
-INSERT INTO airlines (icao_code, iata_code, name, country, callsign) VALUES
+INSERT INTO flight_radar.airlines (icao_code, iata_code, name, country, callsign) VALUES
     ('AAL', 'AA', 'American Airlines', 'United States', 'AMERICAN'),
     ('DAL', 'DL', 'Delta Air Lines', 'United States', 'DELTA'),
     ('UAL', 'UA', 'United Airlines', 'United States', 'UNITED'),
@@ -120,7 +120,7 @@ INSERT INTO airlines (icao_code, iata_code, name, country, callsign) VALUES
     ('XXX', 'AA', 'American Airlines', 'United States', 'AMERICAN')
 ON CONFLICT (icao_code) DO NOTHING;
 
-INSERT INTO flights (flight_number, airline_icao, aircraft_icao24, origin_airport, destination_airport, scheduled_departure, scheduled_arrival, status) VALUES
+INSERT INTO flight_radar.flights (flight_number, airline_icao, aircraft_icao24, origin_airport, destination_airport, scheduled_departure, scheduled_arrival, status) VALUES
     ('AA100', 'AAL', 'a0f1b2', 'KJFK', 'EGLL', NOW() + INTERVAL '2 hours', NOW() + INTERVAL '9 hours', 'scheduled'),
     ('BA200', 'BAW', 'c3d4e5', 'EGLL', 'LFPG', NOW() + INTERVAL '1 hour', NOW() + INTERVAL '2 hours', 'scheduled'),
     ('DLH300', 'DLH', 'a1b2c3', 'EDDF', 'SBGR', NOW() + INTERVAL '4 hours', NOW() + INTERVAL '14 hours', 'scheduled'),
@@ -128,33 +128,29 @@ INSERT INTO flights (flight_number, airline_icao, aircraft_icao24, origin_airpor
     ('BA500', 'BAW', 'c3d4e5', 'LFPG', 'EGLL', NOW() - INTERVAL '4 hours', NOW() - INTERVAL '3 hours', 'landed')
 ON CONFLICT DO NOTHING;
 
-INSERT INTO aircraft_positions (aircraft_icao24, flight_id, latitude, longitude, altitude_ft, velocity_kts, heading, vertical_rate_fpm, on_ground, recorded_at) VALUES
+INSERT INTO flight_radar.aircraft_positions (aircraft_icao24, flight_id, latitude, longitude, altitude_ft, velocity_kts, heading, vertical_rate_fpm, on_ground, recorded_at) VALUES
     -- DL400 (Delta, d4e5f6 / B77W) - JFK→CDG, voo ativo, cruising over Atlantic at 37000ft
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 42.5000000, -50.0000000, 37000, 485, 75, 0, FALSE, NOW() - INTERVAL '1 hour'),
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 44.2000000, -40.0000000, 37000, 490, 78, 0, FALSE, NOW() - INTERVAL '45 minutes'),
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 46.1000000, -30.0000000, 37000, 488, 80, 0, FALSE, NOW() - INTERVAL '30 minutes'),
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 47.8000000, -20.0000000, 37000, 492, 82, 0, FALSE, NOW() - INTERVAL '15 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 42.5000000, -50.0000000, 37000, 485, 75, 0, FALSE, NOW() - INTERVAL '1 hour'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 44.2000000, -40.0000000, 37000, 490, 78, 0, FALSE, NOW() - INTERVAL '45 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 46.1000000, -30.0000000, 37000, 488, 80, 0, FALSE, NOW() - INTERVAL '30 minutes'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 47.8000000, -20.0000000, 37000, 492, 82, 0, FALSE, NOW() - INTERVAL '15 minutes'),
     -- climbing out of JFK (departed 2h ago)
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 40.6398010, -73.7789000, 150, 180, 145, 1200, TRUE, NOW() - INTERVAL '2 hours'),
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 41.0000000, -72.5000000, 8500, 250, 90, 1800, FALSE, NOW() - INTERVAL '1 hour 50 minutes'),
-    ('d4e5f6', (SELECT flight_id FROM flights WHERE flight_number = 'DL400'), 41.5000000, -70.0000000, 22000, 380, 85, 1500, FALSE, NOW() - INTERVAL '1 hour 40 minutes'),
-
-    -- BA500 (British Airways, c3d4e5 / A320) - CDG→LGR, já pousou, on ground at LHR
-    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '3 hours'),
-    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '2 hours'),
-    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '1 hour'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 40.6398010, -73.7789000, 150, 180, 145, 1200, TRUE, NOW() - INTERVAL '2 hours'),
+    ('d4e5f6', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DL400'), 41.0000000, -72.5000000, 8500, 250, 90, 1800, FALSE, NOW() - INTERVAL '1 hour 50 minutes'),
+    ('c3d4e5', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '2 hours'),
+    ('c3d4e5', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'BA500'), 51.4775000, -0.4613890, 0, 0, 270, 0, TRUE, NOW() - INTERVAL '1 hour'),
 
     -- AA100 (American, a0f1b2 / B738) - JFK→LHR, scheduled, pushing back from gate
-    ('a0f1b2', (SELECT flight_id FROM flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '10 minutes'),
-    ('a0f1b2', (SELECT flight_id FROM flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '15 minutes'),
+    ('a0f1b2', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '10 minutes'),
+    ('a0f1b2', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'AA100'), 40.6398010, -73.7789000, 0, 0, 90, 0, TRUE, NOW() + INTERVAL '15 minutes'),
 
     -- BA200 (British Airways, c3d4e5 / A320) - LHR→CDG, scheduled, taxiing
-    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 15, 210, 0, TRUE, NOW() + INTERVAL '30 minutes'),
-    ('c3d4e5', (SELECT flight_id FROM flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 5, 180, 0, TRUE, NOW() + INTERVAL '40 minutes'),
+    ('c3d4e5', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 15, 210, 0, TRUE, NOW() + INTERVAL '30 minutes'),
+    ('c3d4e5', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'BA200'), 51.4775000, -0.4613890, 0, 5, 180, 0, TRUE, NOW() + INTERVAL '40 minutes'),
 
     -- DLH300 (Lufthansa, a1b2c3 / A320) - FRA→GRU, scheduled long haul, at gate
-    ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours'),
-    ('a1b2c3', (SELECT flight_id FROM flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours 30 minutes')
+    ('a1b2c3', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours'),
+    ('a1b2c3', (SELECT flight_id FROM flight_radar.flights WHERE flight_number = 'DLH300'), 50.0333330, 8.5705560, 0, 0, 220, 0, TRUE, NOW() + INTERVAL '3 hours 30 minutes')
 ON CONFLICT DO NOTHING;
 
 -- =============================================================================
